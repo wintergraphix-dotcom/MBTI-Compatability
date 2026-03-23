@@ -26,7 +26,6 @@ const layers = {
   nodes: document.getElementById("nodesLayer"),
   status: document.getElementById("statusCopy"),
   toggle: document.getElementById("languageToggle"),
-  reset: document.getElementById("resetButton"),
   form: document.getElementById("personForm"),
   nameInput: document.getElementById("nameInput"),
   typeInput: document.getElementById("typeInput"),
@@ -697,12 +696,6 @@ layers.toggle.addEventListener("click", () => {
   const isEnglish = state.language === "EN";
   layers.toggle.textContent = state.language;
   layers.toggle.setAttribute("aria-pressed", String(!isEnglish));
-});
-
-layers.reset.addEventListener("click", () => {
-  if (state.activePersonId !== state.defaultActivePersonId) {
-    setActivePerson(state.defaultActivePersonId);
-  }
 });
 
 layers.copyShareLink.addEventListener("click", () => {
