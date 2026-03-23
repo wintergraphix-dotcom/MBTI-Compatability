@@ -55,7 +55,12 @@ function getCompatibilityLevel(score) {
   if (score <= 8) {
     return { label: "Strong", color: "#73D13D", width: 6.25 };
   }
-  return { label: "Elite", color: "#52C41A", width: 7.25 };
+  return {
+    label: "Elite",
+    color: "#2F9E2F",
+    width: 7.25,
+    gradient: ["#1F7A1F", "#2F9E2F", "#6FCD46"]
+  };
 }
 
 function sanitizeType(type) {

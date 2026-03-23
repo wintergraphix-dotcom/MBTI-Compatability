@@ -8,6 +8,9 @@
   --disaster: #ff4d4f;
   --not-bad: #f5a623;
   --great: #52c41a;
+  --elite-dark: #1f7a1f;
+  --elite-mid: #2f9e2f;
+  --elite-light: #6fcd46;
   --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
   --font-body: "Inter", sans-serif;
   --font-heading: "Space Grotesk", sans-serif;
@@ -326,6 +329,10 @@ h1 {
   align-items: start;
 }
 
+.member-panel.is-hidden {
+  display: none;
+}
+
 .member-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -461,7 +468,7 @@ h1 {
 }
 
 .swatch.elite {
-  background: var(--great);
+  background: linear-gradient(90deg, var(--elite-dark), var(--elite-mid), var(--elite-light));
 }
 
 .map-stage {
@@ -766,6 +773,10 @@ h1 {
 
   .member-type {
     font-size: 0.72rem;
+  }
+
+  .labels-layer {
+    display: none;
   }
 }
 

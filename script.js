@@ -34,6 +34,7 @@ const layers = {
   formMessage: document.getElementById("formMessage"),
   adminBadge: document.getElementById("adminBadge"),
   adminHelper: document.getElementById("adminHelper"),
+  memberPanel: document.getElementById("memberPanel"),
   memberList: document.getElementById("memberList"),
   copyShareLink: document.getElementById("copyShareLink"),
   copyAdminLink: document.getElementById("copyAdminLink"),
@@ -64,6 +65,15 @@ const collaboration = {
 
 const nodeElements = new Map();
 const connectionElements = new Map();
+
+function getSvgDefs() {
+  let defs = layers.svg.querySelector("defs");
+  if (!defs) {
+    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    layers.svg.prepend(defs);
+  }
+  return defs;
+}
 
 function parseMBTI(type) {
   const cleaned = String(type || "").trim().toUpperCase();
@@ -602,6 +612,18 @@ function ensureConnection(id) {
   path.setAttribute("id", pathId);
   path.setAttribute("class", "connection-line");
 
+  const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  gradient.setAttribute("id", `connection-gradient-${id}`);
+  gradient.setAttribute("gradientUnits", "userSpaceOnUse");
+  const stopA = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  stopA.setAttribute("offset", "0%");
+  const stopB = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  stopB.setAttribute("offset", "55%");
+  const stopC = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+  stopC.setAttribute("offset", "100%");
+  gradient.append(stopA, stopB, stopC);
+  getSvgDefs().appendChild(gradient);
+
   group.append(path);
   layers.svg.appendChild(group);
 
@@ -609,7 +631,7 @@ function ensureConnection(id) {
   pill.className = "connection-pill";
   layers.labels.appendChild(pill);
 
-  const elementSet = { group, path, pill };
+  const elementSet = { group, path, pill, gradient, stops: [stopA, stopB, stopC] };
   connectionElements.set(id, elementSet);
   return elementSet;
 }
@@ -634,6 +656,7 @@ function syncConnectionInventory() {
     if (!state.people.some((person) => person.id === id)) {
       elements.group.remove();
       elements.pill.remove();
+      elements.gradient.remove();
       connectionElements.delete(id);
     }
   });
@@ -716,6 +739,7 @@ function updateAdminUi() {
   layers.adminHelper.textContent = state.isAdmin
     ? "Tap anyone below to steer the circle. You can also tidy the guest list if needed."
     : "Tap anyone below to see their chemistry with the rest of the group.";
+  layers.memberPanel.classList.toggle("is-hidden", !state.isAdmin);
   layers.copyAdminLink.style.display = state.isAdmin ? "" : "none";
   renderMemberList();
 }
@@ -759,6 +783,10 @@ function getConnectionGeometry(fromPoint, toPoint, index) {
 
   return {
     pathData: `M ${startPoint.x} ${startPoint.y} Q ${controlX} ${controlY} ${endPoint.x} ${endPoint.y}`,
+    startX: startPoint.x,
+    startY: startPoint.y,
+    endX: endPoint.x,
+    endY: endPoint.y,
     labelX: clampedLabelX,
     labelY: clampedLabelY
   };
@@ -793,7 +821,18 @@ function renderConnectionsFromActivePerson(activePersonId, positions) {
 
     connection.group.style.display = "";
     connection.path.setAttribute("d", geometry.pathData);
-    connection.path.setAttribute("stroke", compatibility.color);
+    if (compatibility.gradient) {
+      connection.gradient.setAttribute("x1", String(geometry.startX));
+      connection.gradient.setAttribute("y1", String(geometry.startY));
+      connection.gradient.setAttribute("x2", String(geometry.endX));
+      connection.gradient.setAttribute("y2", String(geometry.endY));
+      connection.stops.forEach((stop, stopIndex) => {
+        stop.setAttribute("stop-color", compatibility.gradient[stopIndex] || compatibility.color);
+      });
+      connection.path.setAttribute("stroke", `url(#${connection.gradient.id})`);
+    } else {
+      connection.path.setAttribute("stroke", compatibility.color);
+    }
     connection.path.setAttribute(
       "stroke-width",
       String(compatibility.width + compatibility.score * 0.12)
