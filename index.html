@@ -45,6 +45,7 @@
           <div class="map-panel-header">
             <div>
               <p class="section-kicker">Chemistry map</p>
+              <p class="group-name" id="groupNameDisplay">Shav's crew</p>
               <p class="control-title">See how one person connects with the rest of the group</p>
             </div>
             <div class="legend" aria-label="Compatibility legend">
@@ -129,6 +130,78 @@
               </button>
             </div>
             <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+            <section class="create-group-card" aria-label="Start your own group">
+              <p class="section-kicker">Start your own group</p>
+              <p class="create-group-title">Want your own public circle?</p>
+              <p class="create-group-copy">
+                Make one in a minute. You'll get a clean public link to share and a private admin
+                link to keep.
+              </p>
+              <button class="ghost-button create-group-toggle" id="toggleCreateGroup" type="button">
+                Start your own group
+              </button>
+
+              <form class="create-group-form is-hidden" id="createGroupForm">
+                <label class="field">
+                  <span>Group name <strong class="required-mark" aria-hidden="true">*</strong></span>
+                  <input
+                    id="groupNameInput"
+                    name="groupName"
+                    type="text"
+                    maxlength="40"
+                    placeholder="Shav's crew"
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Your name <strong class="required-mark" aria-hidden="true">*</strong></span>
+                  <input
+                    id="starterNameInput"
+                    name="starterName"
+                    type="text"
+                    maxlength="24"
+                    placeholder="Your first name"
+                  />
+                </label>
+
+                <label class="field">
+                  <span>Your MBTI <strong class="required-mark" aria-hidden="true">*</strong></span>
+                  <select id="starterTypeInput" name="starterType">
+                    <option value="">Choose type</option>
+                    <optgroup label="Analysts">
+                      <option value="INTJ">INTJ - Architect</option>
+                      <option value="INTP">INTP - Logician</option>
+                      <option value="ENTJ">ENTJ - Commander</option>
+                      <option value="ENTP">ENTP - Debater</option>
+                    </optgroup>
+                    <optgroup label="Diplomats">
+                      <option value="INFJ">INFJ - Advocate</option>
+                      <option value="INFP">INFP - Mediator</option>
+                      <option value="ENFJ">ENFJ - Protagonist</option>
+                      <option value="ENFP">ENFP - Campaigner</option>
+                    </optgroup>
+                    <optgroup label="Sentinels">
+                      <option value="ISTJ">ISTJ - Logistician</option>
+                      <option value="ISFJ">ISFJ - Defender</option>
+                      <option value="ESTJ">ESTJ - Executive</option>
+                      <option value="ESFJ">ESFJ - Consul</option>
+                    </optgroup>
+                    <optgroup label="Explorers">
+                      <option value="ISTP">ISTP - Virtuoso</option>
+                      <option value="ISFP">ISFP - Adventurer</option>
+                      <option value="ESTP">ESTP - Entrepreneur</option>
+                      <option value="ESFP">ESFP - Entertainer</option>
+                    </optgroup>
+                  </select>
+                </label>
+
+                <button class="primary-button form-button" id="createGroupButton" type="submit" disabled>
+                  Create group
+                </button>
+              </form>
+
+              <p class="form-message create-group-message" id="createGroupMessage" role="status" aria-live="polite"></p>
+            </section>
           </div>
         </section>
 

@@ -5,21 +5,23 @@ import {
 } from "./src/lib/compatibility.js";
 
 const INITIAL_PEOPLE = [
-  { id: "1", name: "Shav", type: "ENFJ" },
-  { id: "2", name: "Ray", type: "ENFP" },
-  { id: "3", name: "Viv", type: "ISTJ" },
-  { id: "4", name: "Chelsea", type: "INFJ" },
-  { id: "5", name: "Ange", type: "INTP" },
-  { id: "6", name: "Daniel", type: "INFP" },
-  { id: "7", name: "Nghi", type: "INFJ" },
-  { id: "8", name: "Michelle", type: "INTP" },
-  { id: "9", name: "Jess", type: "INFJ" },
-  { id: "10", name: "Jason", type: "INTJ" }
+  { name: "Shav", type: "ENFJ" },
+  { name: "Ray", type: "ENFP" },
+  { name: "Viv", type: "ISTJ" },
+  { name: "Chelsea", type: "INFJ" },
+  { name: "Ange", type: "INTP" },
+  { name: "Daniel", type: "INFP" },
+  { name: "Nghi", type: "INFJ" },
+  { name: "Michelle", type: "INTP" },
+  { name: "Jess", type: "INFJ" },
+  { name: "Jason", type: "INTJ" }
 ];
 
-const DEFAULT_ACTIVE_ID = INITIAL_PEOPLE[0].id;
 const DURATION = 460;
 const APP_CONFIG = window.PERSONALITY_CHEMISTRY_CONFIG || {};
+
+const DEFAULT_GROUP_SLUG = APP_CONFIG.defaultGroupSlug || "shavs-crew";
+const DEFAULT_GROUP_NAME = APP_CONFIG.defaultGroupName || "Shav's crew";
 
 const layers = {
   stage: document.getElementById("mapStage"),
@@ -27,6 +29,7 @@ const layers = {
   labels: document.getElementById("labelsLayer"),
   nodes: document.getElementById("nodesLayer"),
   status: document.getElementById("statusCopy"),
+  groupNameDisplay: document.getElementById("groupNameDisplay"),
   form: document.getElementById("personForm"),
   nameInput: document.getElementById("nameInput"),
   typeInput: document.getElementById("typeInput"),
@@ -38,29 +41,36 @@ const layers = {
   memberList: document.getElementById("memberList"),
   copyShareLink: document.getElementById("copyShareLink"),
   copyAdminLink: document.getElementById("copyAdminLink"),
-  mapEmptyState: document.getElementById("mapEmptyState")
+  mapEmptyState: document.getElementById("mapEmptyState"),
+  toggleCreateGroup: document.getElementById("toggleCreateGroup"),
+  createGroupForm: document.getElementById("createGroupForm"),
+  groupNameInput: document.getElementById("groupNameInput"),
+  starterNameInput: document.getElementById("starterNameInput"),
+  starterTypeInput: document.getElementById("starterTypeInput"),
+  createGroupButton: document.getElementById("createGroupButton"),
+  createGroupMessage: document.getElementById("createGroupMessage")
 };
 
 const state = {
-  people: INITIAL_PEOPLE.map((person) => ({ ...person })),
-  defaultActivePersonId: DEFAULT_ACTIVE_ID,
-  activePersonId: DEFAULT_ACTIVE_ID,
+  groupId: "",
+  groupSlug: DEFAULT_GROUP_SLUG,
+  groupName: DEFAULT_GROUP_NAME,
+  defaultActivePersonId: "",
+  activePersonId: "",
+  adminToken: "",
+  isAdmin: false,
+  people: [],
   hoveredId: null,
   positions: {},
-  animationFrame: null,
-  nextId: INITIAL_PEOPLE.length + 1,
-  groupId: "",
-  adminKey: "",
-  isAdmin: true
+  animationFrame: null
 };
 
 const collaboration = {
   enabled: false,
   client: null,
   channel: null,
-  table: APP_CONFIG.supabaseTable || "chemistry_groups",
-  bootstrapped: false,
-  lastSharedSignature: ""
+  groupsTable: APP_CONFIG.supabaseGroupsTable || "chemistry_public_groups",
+  membersTable: APP_CONFIG.supabaseMembersTable || "chemistry_group_members"
 };
 
 const nodeElements = new Map();
@@ -90,32 +100,29 @@ function createToken() {
   return `id-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function encodeBase64Url(value) {
-  return btoa(unescape(encodeURIComponent(value)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-function decodeBase64Url(value) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
-  return decodeURIComponent(escape(atob(`${normalized}${padding}`)));
+async function hashToken(token) {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(token);
+  const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function sanitizePeople(input) {
   if (!Array.isArray(input)) {
-    return INITIAL_PEOPLE.map((person) => ({ ...person }));
+    return [];
   }
 
   const seenNames = new Set();
-  const sanitized = input
-    .map((person, index) => {
+  return input
+    .map((person) => {
+      const id = String(person?.id || "");
       const name = String(person?.name || "").trim();
       const type = String(person?.type || "").trim().toUpperCase();
-      const id = String(person?.id || index + 1);
+      const isStarter = Boolean(person?.isStarter || person?.is_starter);
 
-      if (!name || !parseMBTI(type)) {
+      if (!id || !name || !parseMBTI(type)) {
         return null;
       }
 
@@ -125,62 +132,85 @@ function sanitizePeople(input) {
       }
       seenNames.add(lowered);
 
-      return { id, name, type };
+      return { id, name, type, isStarter };
     })
     .filter(Boolean);
-
-  return sanitized.length ? sanitized : INITIAL_PEOPLE.map((person) => ({ ...person }));
 }
 
-function getSerializableState() {
-  return {
-    groupId: state.groupId,
-    defaultActivePersonId: state.defaultActivePersonId,
-    activePersonId: state.activePersonId,
-    people: state.people
-  };
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
 }
 
-function getSharedGroupState() {
-  return {
-    groupId: state.groupId,
-    defaultActivePersonId: state.defaultActivePersonId,
-    people: state.people
-  };
+function getRequestedSlug() {
+  const url = new URL(window.location.href);
+  if (url.protocol === "file:") {
+    return url.searchParams.get("group") || DEFAULT_GROUP_SLUG;
+  }
+
+  const match = url.pathname.match(/^\/g\/([^/]+)\/?$/);
+  if (match) {
+    return decodeURIComponent(match[1]);
+  }
+
+  return DEFAULT_GROUP_SLUG;
 }
 
-function getSharedStateSignature(snapshot = getSharedGroupState()) {
-  return JSON.stringify(snapshot);
+function getRequestedAdminToken() {
+  return new URL(window.location.href).searchParams.get("admin") || "";
 }
 
-function getAdminStorageKey(groupId) {
-  return `personality-chemistry-admin:${groupId}`;
+function getAdminStorageKey(slug) {
+  return `personality-chemistry-admin:${slug}`;
 }
 
-function persistAdminKey() {
+function persistAdminToken(slug, token) {
   try {
-    window.localStorage.setItem(getAdminStorageKey(state.groupId), state.adminKey);
+    window.localStorage.setItem(getAdminStorageKey(slug), token);
   } catch {
     return;
   }
 }
 
-function getStoredAdminKey(groupId) {
+function getStoredAdminToken(slug) {
   try {
-    return window.localStorage.getItem(getAdminStorageKey(groupId)) || "";
+    return window.localStorage.getItem(getAdminStorageKey(slug)) || "";
   } catch {
     return "";
   }
 }
 
-function buildAppUrl(includeAdminKey) {
+function getGroupPath(slug) {
+  if (slug === DEFAULT_GROUP_SLUG) {
+    return "/";
+  }
+  return `/g/${encodeURIComponent(slug)}`;
+}
+
+function buildAppUrl(includeAdminToken = false, slug = state.groupSlug, adminTokenOverride = "") {
   const url = new URL(window.location.href);
-  url.searchParams.set("data", encodeBase64Url(JSON.stringify(getSerializableState())));
-  if (includeAdminKey) {
-    url.searchParams.set("admin", state.adminKey);
+
+  if (url.protocol === "file:") {
+    url.searchParams.set("group", slug);
+  } else {
+    url.pathname = getGroupPath(slug);
+  }
+
+  url.searchParams.delete("data");
+
+  const adminToken = adminTokenOverride || state.adminToken;
+
+  if (includeAdminToken && adminToken) {
+    url.searchParams.set("admin", adminToken);
   } else {
     url.searchParams.delete("admin");
   }
+
   return url.toString();
 }
 
@@ -189,223 +219,11 @@ function syncUrlState() {
   window.history.replaceState({}, "", nextUrl);
 }
 
-function loadStateFromUrl() {
-  const url = new URL(window.location.href);
-  const encoded = url.searchParams.get("data");
-  const requestedAdminKey = url.searchParams.get("admin") || "";
-
-  if (!encoded) {
-    state.groupId = createToken();
-    state.adminKey = createToken();
-    state.isAdmin = true;
-    persistAdminKey();
-    syncUrlState();
-    return;
-  }
-
-  try {
-    const parsed = JSON.parse(decodeBase64Url(encoded));
-    const people = sanitizePeople(parsed.people);
-    const parsedActiveId = parsed.activePersonId || parsed.centerId;
-    const parsedDefaultActiveId = parsed.defaultActivePersonId || parsed.defaultCenterId;
-    const activeExists = people.some((person) => person.id === parsedActiveId);
-    const defaultExists = people.some((person) => person.id === parsedDefaultActiveId);
-
-    state.people = people;
-    state.groupId = String(parsed.groupId || createToken());
-    const storedAdminKey = getStoredAdminKey(state.groupId);
-    state.defaultActivePersonId = defaultExists ? String(parsedDefaultActiveId) : people[0].id;
-    state.activePersonId = activeExists ? String(parsedActiveId) : state.defaultActivePersonId;
-    state.nextId =
-      Math.max(
-        0,
-        ...people.map((person) => {
-          const numeric = Number.parseInt(person.id, 10);
-          return Number.isNaN(numeric) ? 0 : numeric;
-        })
-      ) + 1;
-
-    state.adminKey = String(storedAdminKey || requestedAdminKey || createToken());
-    state.isAdmin =
-      (requestedAdminKey !== "" && requestedAdminKey === state.adminKey) ||
-      (requestedAdminKey === "" && storedAdminKey !== "" && storedAdminKey === state.adminKey);
-    if (state.isAdmin) {
-      persistAdminKey();
-    }
-  } catch {
-    state.people = INITIAL_PEOPLE.map((person) => ({ ...person }));
-    state.defaultActivePersonId = DEFAULT_ACTIVE_ID;
-    state.activePersonId = DEFAULT_ACTIVE_ID;
-    state.groupId = createToken();
-    state.adminKey = createToken();
-    state.isAdmin = true;
-    persistAdminKey();
-  }
-
-  syncUrlState();
-}
-
-function applySharedGroupState(snapshot, { animate = true } = {}) {
-  if (!snapshot || typeof snapshot !== "object") {
-    return;
-  }
-
-  const people = sanitizePeople(snapshot.people);
-  const defaultExists = people.some((person) => person.id === snapshot.defaultActivePersonId);
-  const activeStillExists = people.some((person) => person.id === state.activePersonId);
-
-  state.people = people;
-  state.defaultActivePersonId = defaultExists ? String(snapshot.defaultActivePersonId) : people[0].id;
-  state.activePersonId = activeStillExists ? state.activePersonId : state.defaultActivePersonId;
-  state.nextId =
-    Math.max(
-      0,
-      ...people.map((person) => {
-        const numeric = Number.parseInt(person.id, 10);
-        return Number.isNaN(numeric) ? 0 : numeric;
-      })
-    ) + 1;
-
-  collaboration.lastSharedSignature = getSharedStateSignature({
-    groupId: state.groupId,
-    defaultActivePersonId: state.defaultActivePersonId,
-    people: state.people
-  });
-
-  syncNodeInventory();
-  syncConnectionInventory();
-  updateAdminUi();
-
-  const nextPositions = generateCircularPositions(state.people);
-  if (animate && Object.keys(state.positions).length) {
-    animateToPositions(nextPositions);
-  } else {
-    renderFrame(nextPositions);
-  }
-
-  syncUrlState();
-}
-
-async function initializeCollaboration() {
-  const supabaseUrl = APP_CONFIG.supabaseUrl;
-  const supabaseAnonKey = APP_CONFIG.supabaseAnonKey;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return false;
-  }
-
-  try {
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    collaboration.client = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false
-      }
-    });
-    collaboration.enabled = true;
-    return true;
-  } catch (error) {
-    console.warn("Supabase client failed to load. Falling back to local-only mode.", error);
-    collaboration.enabled = false;
-    return false;
-  }
-}
-
-async function persistSharedState() {
-  if (!collaboration.enabled || !collaboration.client || !state.groupId) {
-    return;
-  }
-
-  const snapshot = getSharedGroupState();
-  const signature = getSharedStateSignature(snapshot);
-  collaboration.lastSharedSignature = signature;
-
-  const { error } = await collaboration.client.from(collaboration.table).upsert(
-    {
-      group_id: state.groupId,
-      state: snapshot,
-      updated_at: new Date().toISOString()
-    },
-    {
-      onConflict: "group_id"
-    }
-  );
-
-  if (error) {
-    console.warn("Supabase sync write failed.", error);
-    setMessage("Live sync is unavailable right now. Local changes still work.", true);
-  }
-}
-
-async function loadSharedStateFromSupabase() {
-  if (!collaboration.enabled || !collaboration.client || !state.groupId) {
-    return;
-  }
-
-  const { data, error } = await collaboration.client
-    .from(collaboration.table)
-    .select("state")
-    .eq("group_id", state.groupId)
-    .maybeSingle();
-
-  if (error) {
-    console.warn("Supabase sync read failed.", error);
-    return;
-  }
-
-  if (data?.state) {
-    applySharedGroupState(data.state, { animate: false });
-    collaboration.bootstrapped = true;
-    return;
-  }
-
-  await persistSharedState();
-  collaboration.bootstrapped = true;
-}
-
-function subscribeToSharedState() {
-  if (!collaboration.enabled || !collaboration.client || !state.groupId) {
-    return;
-  }
-
-  if (collaboration.channel) {
-    collaboration.client.removeChannel(collaboration.channel);
-    collaboration.channel = null;
-  }
-
-  collaboration.channel = collaboration.client
-    .channel(`chemistry-group-${state.groupId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: collaboration.table,
-        filter: `group_id=eq.${state.groupId}`
-      },
-      (payload) => {
-        const incomingState = payload.new?.state || payload.old?.state;
-        if (!incomingState) {
-          return;
-        }
-
-        const signature = getSharedStateSignature(incomingState);
-        if (signature === collaboration.lastSharedSignature) {
-          return;
-        }
-
-        applySharedGroupState(incomingState);
-      }
-    )
-    .subscribe();
-}
-
 function getStageMetrics() {
   const rect = layers.stage.getBoundingClientRect();
   return {
-    width: rect.width || 1000,
-    height: rect.height || 800
+    width: rect.width || 560,
+    height: rect.height || 560
   };
 }
 
@@ -527,8 +345,7 @@ function generateCircularPositions(nodes) {
 
   layers.svg.setAttribute("viewBox", `0 0 ${metrics.width} ${metrics.height}`);
 
-  nodes.forEach((node) => {
-    const ringIndex = nodes.findIndex((ringNode) => ringNode.id === node.id);
+  nodes.forEach((node, ringIndex) => {
     const angle = startAngle + ringIndex * angleStep;
     positions[node.id] = {
       x: center.x + Math.cos(angle) * radius,
@@ -540,9 +357,9 @@ function generateCircularPositions(nodes) {
   return positions;
 }
 
-function setMessage(message, isError = false) {
-  layers.formMessage.textContent = message;
-  layers.formMessage.style.color = isError ? "#FF4D4F" : "#72757e";
+function setMessage(message, isError = false, target = layers.formMessage) {
+  target.textContent = message;
+  target.style.color = isError ? "#FF4D4F" : "#72757e";
 }
 
 function setButtonBusy(isBusy) {
@@ -550,10 +367,22 @@ function setButtonBusy(isBusy) {
   layers.addButton.textContent = isBusy ? "Adding..." : "Add to circle";
 }
 
+function setCreateGroupBusy(isBusy) {
+  layers.createGroupButton.disabled = isBusy;
+  layers.createGroupButton.textContent = isBusy ? "Creating..." : "Create group";
+}
+
 function updateFormState() {
   const hasName = layers.nameInput.value.trim().length > 0;
   const hasType = layers.typeInput.value.trim().length > 0;
   layers.addButton.disabled = !(hasName && hasType);
+}
+
+function updateCreateGroupState() {
+  const hasGroupName = layers.groupNameInput.value.trim().length > 0;
+  const hasStarterName = layers.starterNameInput.value.trim().length > 0;
+  const hasStarterType = layers.starterTypeInput.value.trim().length > 0;
+  layers.createGroupButton.disabled = !(hasGroupName && hasStarterName && hasStarterType);
 }
 
 function getPersonById(id) {
@@ -614,8 +443,6 @@ function ensureConnection(id) {
   group.setAttribute("class", "connection-group");
 
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  const pathId = `connection-path-${id}`;
-  path.setAttribute("id", pathId);
   path.setAttribute("class", "connection-line");
 
   const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
@@ -707,7 +534,7 @@ function renderMemberList() {
 
     const actions = card.querySelector(".member-actions");
 
-    if (person.id === state.defaultActivePersonId && state.isAdmin) {
+    if (person.isStarter && state.isAdmin) {
       const starter = document.createElement("span");
       starter.className = "member-pill";
       starter.textContent = "Starter";
@@ -727,10 +554,10 @@ function renderMemberList() {
       removeButton.type = "button";
       removeButton.textContent = "×";
       removeButton.setAttribute("aria-label", `Remove ${person.name}`);
-      removeButton.disabled = state.people.length <= 1 || person.id === state.defaultActivePersonId;
+      removeButton.disabled = state.people.length <= 1 || person.isStarter;
       removeButton.addEventListener("click", (event) => {
         event.stopPropagation();
-        removePerson(person.id);
+        void removePerson(person.id);
       });
       actions.appendChild(removeButton);
     }
@@ -740,11 +567,12 @@ function renderMemberList() {
 }
 
 function updateAdminUi() {
+  layers.groupNameDisplay.textContent = state.groupName;
   layers.adminBadge.textContent = state.isAdmin ? "Starter view" : "Shared view";
   layers.adminBadge.classList.toggle("is-viewer", !state.isAdmin);
   layers.adminHelper.textContent = state.isAdmin
     ? "Tap anyone below to steer the circle. You can also tidy the guest list if needed."
-    : "Tap anyone below to see their chemistry with the rest of the group.";
+    : "Everyone can tap around the map. Only the starter gets the private admin view.";
   layers.memberPanel.classList.toggle("is-hidden", !state.isAdmin);
   layers.copyAdminLink.style.display = state.isAdmin ? "" : "none";
   renderMemberList();
@@ -843,10 +671,8 @@ function renderConnectionsFromActivePerson(activePersonId, positions) {
       "stroke-width",
       String(compatibility.width + compatibility.score * 0.12)
     );
-    connection.path.setAttribute("data-reason", compatibility.reason || "");
-    connection.pill.style.display = "";
+    connection.pill.style.display = isSmallViewport ? "none" : "";
     connection.pill.textContent = `${compatibility.label} · ${compatibility.score}/9`;
-    connection.pill.dataset.compact = String(isSmallViewport);
     connection.pill.style.left = `${geometry.labelX}px`;
     connection.pill.style.top = `${geometry.labelY}px`;
   });
@@ -858,6 +684,9 @@ function renderFrame(positions) {
   state.people.forEach((person) => {
     const node = nodeElements.get(person.id);
     const position = positions[person.id];
+    if (!node || !position) {
+      return;
+    }
 
     node.classList.toggle("is-active", person.id === state.activePersonId);
     node.style.transform = `translate(${position.x}px, ${position.y}px)`;
@@ -876,12 +705,13 @@ function updateVisualState() {
 
   state.people.forEach((person) => {
     const node = nodeElements.get(person.id);
+    if (!node) {
+      return;
+    }
+
     const isActive = person.id === state.activePersonId;
     const isHovered = person.id === state.hoveredId;
-    const shouldDim =
-      state.hoveredId !== null &&
-      !isActive &&
-      !isHovered;
+    const shouldDim = state.hoveredId !== null && !isActive && !isHovered;
 
     node.classList.toggle("is-hovered", isHovered);
     node.classList.toggle("is-dimmed", shouldDim);
@@ -889,7 +719,7 @@ function updateVisualState() {
 
   connectionElements.forEach((elements, id) => {
     const person = getPersonById(id);
-    if (!person || id === state.activePersonId) {
+    if (!person || !activePerson || id === state.activePersonId) {
       return;
     }
 
@@ -918,10 +748,12 @@ function updateVisualState() {
     return;
   }
 
-  layers.status.textContent = `Now viewing ${activePerson.name}'s chemistry with the group`;
   if (state.activePersonId === state.defaultActivePersonId) {
-    layers.status.textContent = `${activePerson.name}'s chemistry with the group`;
+    layers.status.textContent = `${activePerson.name}'s chemistry with ${state.groupName}`;
+    return;
   }
+
+  layers.status.textContent = `Now viewing ${activePerson.name}'s chemistry with ${state.groupName}`;
 }
 
 function animateToPositions(nextPositions) {
@@ -981,10 +813,305 @@ function setActivePerson(nodeId) {
   state.hoveredId = null;
   state.activePersonId = nodeId;
   renderFrame(state.positions);
+}
+
+function applySnapshot(group, members, { animate = true, adminToken = "", isAdmin = false } = {}) {
+  const people = sanitizePeople(members);
+  const defaultActiveExists = people.some((person) => person.id === group.default_active_person_id);
+  const previousActiveStillExists = people.some((person) => person.id === state.activePersonId);
+
+  state.groupId = String(group.id);
+  state.groupSlug = String(group.slug);
+  state.groupName = String(group.name);
+  state.people = people;
+  state.defaultActivePersonId = defaultActiveExists
+    ? String(group.default_active_person_id)
+    : people[0]?.id || "";
+  state.activePersonId = previousActiveStillExists
+    ? state.activePersonId
+    : state.defaultActivePersonId;
+  state.adminToken = adminToken;
+  state.isAdmin = isAdmin;
+
+  if (state.isAdmin && state.adminToken) {
+    persistAdminToken(state.groupSlug, state.adminToken);
+  }
+
+  syncNodeInventory();
+  syncConnectionInventory();
+  updateAdminUi();
+
+  const nextPositions = generateCircularPositions(state.people);
+  if (animate && Object.keys(state.positions).length) {
+    animateToPositions(nextPositions);
+  } else {
+    renderFrame(nextPositions);
+  }
+
   syncUrlState();
 }
 
-function addPerson(name, type) {
+async function initializeCollaboration() {
+  const supabaseUrl = APP_CONFIG.supabaseUrl;
+  const supabaseAnonKey = APP_CONFIG.supabaseAnonKey;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return false;
+  }
+
+  try {
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    collaboration.client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
+    collaboration.enabled = true;
+    return true;
+  } catch (error) {
+    console.warn("Supabase client failed to load. Falling back to local-only mode.", error);
+    collaboration.enabled = false;
+    return false;
+  }
+}
+
+async function fetchGroupBySlug(slug) {
+  const { data, error } = await collaboration.client
+    .from(collaboration.groupsTable)
+    .select("id, slug, name, admin_key_hash, default_active_person_id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Group read failed.", error);
+    return null;
+  }
+
+  return data;
+}
+
+async function fetchGroupMembers(groupId) {
+  const { data, error } = await collaboration.client
+    .from(collaboration.membersTable)
+    .select("id, name, type, is_starter, created_at")
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn("Group members read failed.", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+async function ensureUniqueSlug(baseSlug) {
+  let slug = baseSlug;
+  let index = 2;
+
+  while (true) {
+    const existing = await fetchGroupBySlug(slug);
+    if (!existing) {
+      return slug;
+    }
+    slug = `${baseSlug}-${index}`;
+    index += 1;
+  }
+}
+
+async function createGroupRecord({ name, slug, adminToken, seedPeople }) {
+  const adminKeyHash = await hashToken(adminToken);
+  const { data: groupRow, error: groupError } = await collaboration.client
+    .from(collaboration.groupsTable)
+    .insert({
+      slug,
+      name,
+      admin_key_hash: adminKeyHash
+    })
+    .select("id, slug, name, admin_key_hash, default_active_person_id")
+    .single();
+
+  if (groupError) {
+    throw groupError;
+  }
+
+  const membersPayload = seedPeople.map((person, index) => ({
+    group_id: groupRow.id,
+    name: person.name,
+    type: person.type,
+    is_starter: index === 0
+  }));
+
+  const { data: members, error: membersError } = await collaboration.client
+    .from(collaboration.membersTable)
+    .insert(membersPayload)
+    .select("id, name, type, is_starter, created_at");
+
+  if (membersError) {
+    throw membersError;
+  }
+
+  const starter = members[0];
+  const { data: updatedGroup, error: updateError } = await collaboration.client
+    .from(collaboration.groupsTable)
+    .update({
+      default_active_person_id: starter.id,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", groupRow.id)
+    .select("id, slug, name, admin_key_hash, default_active_person_id")
+    .single();
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  return {
+    group: updatedGroup,
+    members
+  };
+}
+
+async function ensureDefaultGroupExists() {
+  const existing = await fetchGroupBySlug(DEFAULT_GROUP_SLUG);
+  if (existing) {
+    return existing;
+  }
+
+  const adminToken = createToken();
+  const { group } = await createGroupRecord({
+    name: DEFAULT_GROUP_NAME,
+    slug: DEFAULT_GROUP_SLUG,
+    adminToken,
+    seedPeople: INITIAL_PEOPLE
+  });
+
+  persistAdminToken(DEFAULT_GROUP_SLUG, adminToken);
+  return group;
+}
+
+async function loadGroupSnapshot(slug, requestedAdminToken = "") {
+  if (!collaboration.enabled || !collaboration.client) {
+    return false;
+  }
+
+  if (slug === DEFAULT_GROUP_SLUG) {
+    await ensureDefaultGroupExists();
+  }
+
+  const group = await fetchGroupBySlug(slug);
+  if (!group) {
+    setMessage("That group couldn't be found. Starting with Shav's crew instead.", true);
+    if (slug !== DEFAULT_GROUP_SLUG) {
+      await ensureDefaultGroupExists();
+      const fallbackGroup = await fetchGroupBySlug(DEFAULT_GROUP_SLUG);
+      const fallbackMembers = fallbackGroup ? await fetchGroupMembers(fallbackGroup.id) : [];
+      const storedFallbackToken = getStoredAdminToken(DEFAULT_GROUP_SLUG);
+      const fallbackHash = storedFallbackToken ? await hashToken(storedFallbackToken) : "";
+      if (fallbackGroup) {
+        applySnapshot(fallbackGroup, fallbackMembers, {
+          animate: false,
+          adminToken:
+            fallbackHash && fallbackHash === fallbackGroup.admin_key_hash ? storedFallbackToken : "",
+          isAdmin: fallbackHash && fallbackHash === fallbackGroup.admin_key_hash
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const members = await fetchGroupMembers(group.id);
+  const storedAdminToken = getStoredAdminToken(group.slug);
+  const candidateToken = requestedAdminToken || storedAdminToken;
+  let isAdmin = false;
+  let validAdminToken = "";
+
+  if (candidateToken) {
+    const candidateHash = await hashToken(candidateToken);
+    isAdmin = candidateHash === group.admin_key_hash;
+    validAdminToken = isAdmin ? candidateToken : "";
+  }
+
+  applySnapshot(group, members, {
+    animate: false,
+    adminToken: validAdminToken,
+    isAdmin
+  });
+
+  return true;
+}
+
+async function refreshCurrentGroup({ animate = true } = {}) {
+  if (!collaboration.enabled || !collaboration.client || !state.groupSlug) {
+    return;
+  }
+
+  const group = await fetchGroupBySlug(state.groupSlug);
+  if (!group) {
+    return;
+  }
+
+  const members = await fetchGroupMembers(group.id);
+  const storedAdminToken = state.adminToken || getStoredAdminToken(group.slug);
+  let isAdmin = false;
+  let validAdminToken = "";
+
+  if (storedAdminToken) {
+    const tokenHash = await hashToken(storedAdminToken);
+    isAdmin = tokenHash === group.admin_key_hash;
+    validAdminToken = isAdmin ? storedAdminToken : "";
+  }
+
+  applySnapshot(group, members, {
+    animate,
+    adminToken: validAdminToken,
+    isAdmin
+  });
+}
+
+function subscribeToSharedState() {
+  if (!collaboration.enabled || !collaboration.client || !state.groupId) {
+    return;
+  }
+
+  if (collaboration.channel) {
+    collaboration.client.removeChannel(collaboration.channel);
+    collaboration.channel = null;
+  }
+
+  collaboration.channel = collaboration.client
+    .channel(`chemistry-group-${state.groupId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: collaboration.groupsTable,
+        filter: `id=eq.${state.groupId}`
+      },
+      () => {
+        void refreshCurrentGroup();
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: collaboration.membersTable,
+        filter: `group_id=eq.${state.groupId}`
+      },
+      () => {
+        void refreshCurrentGroup();
+      }
+    )
+    .subscribe();
+}
+
+async function addPerson(name, type) {
   const trimmedName = String(name || "").trim();
   const normalizedType = String(type || "").trim().toUpperCase();
 
@@ -1011,43 +1138,41 @@ function addPerson(name, type) {
   if (duplicate) {
     setButtonBusy(false);
     updateFormState();
-    setMessage("That name is already in the circle.", true);
+    setMessage("That name is already in this group.", true);
     return false;
   }
 
-  const person = {
-    id: String(state.nextId++),
+  if (!collaboration.enabled || !state.groupId) {
+    setButtonBusy(false);
+    updateFormState();
+    setMessage("Live group saving isn't ready right now.", true);
+    return false;
+  }
+
+  const { error } = await collaboration.client.from(collaboration.membersTable).insert({
+    group_id: state.groupId,
     name: trimmedName,
     type: normalizedType
-  };
+  });
 
-  state.people.push(person);
-  syncNodeInventory();
+  if (error) {
+    console.warn("Add member failed.", error);
+    setButtonBusy(false);
+    updateFormState();
+    setMessage("Couldn't add that person right now. Try again in a moment.", true);
+    return false;
+  }
 
-  const stageMetrics = getStageMetrics();
-  state.positions[person.id] = {
-    x: stageMetrics.width / 2,
-    y: stageMetrics.height / 2 + 32
-  };
-
-  state.hoveredId = null;
-  animateToPositions(generateCircularPositions(state.people));
-  syncUrlState();
-  void persistSharedState();
+  await refreshCurrentGroup();
   setButtonBusy(false);
   updateFormState();
-  setMessage(`${person.name} joined the circle.`);
+  setMessage(`${trimmedName} joined ${state.groupName}.`);
   return true;
 }
 
-function removePerson(id) {
+async function removePerson(id) {
   if (!state.isAdmin) {
     setMessage("Only the group starter can remove people.", true);
-    return;
-  }
-
-  if (id === state.defaultActivePersonId) {
-    setMessage("The group starter cannot be removed from the map.", true);
     return;
   }
 
@@ -1056,40 +1181,101 @@ function removePerson(id) {
     return;
   }
 
-  state.people = state.people.filter((entry) => entry.id !== id);
-  delete state.positions[id];
-  syncNodeInventory();
-  syncConnectionInventory();
-
-  if (state.activePersonId === id) {
-    state.activePersonId = state.defaultActivePersonId;
+  if (person.isStarter) {
+    setMessage("The starter stays in the circle.", true);
+    return;
   }
 
-  state.hoveredId = null;
-  animateToPositions(generateCircularPositions(state.people));
-  syncUrlState();
-  void persistSharedState();
-  setMessage(`${person.name} was removed from the circle.`);
+  const { error } = await collaboration.client
+    .from(collaboration.membersTable)
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.warn("Remove member failed.", error);
+    setMessage("Couldn't remove that person right now. Try again in a moment.", true);
+    return;
+  }
+
+  await refreshCurrentGroup();
+  setMessage(`${person.name} was removed from ${state.groupName}.`);
 }
 
-async function copyLink(includeAdminKey) {
-  const link = buildAppUrl(includeAdminKey);
+async function copyLink(includeAdminToken) {
+  const link = buildAppUrl(includeAdminToken);
 
   try {
     await navigator.clipboard.writeText(link);
-    setMessage(includeAdminKey ? "Admin link copied." : "Share link copied.");
+    setMessage(includeAdminToken ? "Admin link copied." : "Share link copied.");
   } catch {
     setMessage("Copying is unavailable here, so use the address bar instead.", true);
   }
 }
 
-function initialize() {
-  loadStateFromUrl();
-  applyResponsiveMapSizing();
+async function createOwnGroup(groupName, starterName, starterType) {
+  const trimmedGroupName = String(groupName || "").trim();
+  const trimmedStarterName = String(starterName || "").trim();
+  const normalizedStarterType = String(starterType || "").trim().toUpperCase();
+
+  setCreateGroupBusy(true);
+
+  if (!trimmedGroupName || !trimmedStarterName || !parseMBTI(normalizedStarterType)) {
+    setCreateGroupBusy(false);
+    updateCreateGroupState();
+    setMessage("Fill out the three fields to start your group.", true, layers.createGroupMessage);
+    return;
+  }
+
+  if (!collaboration.enabled || !collaboration.client) {
+    setCreateGroupBusy(false);
+    updateCreateGroupState();
+    setMessage("Group creation isn't available right now.", true, layers.createGroupMessage);
+    return;
+  }
+
+  const baseSlug = slugify(trimmedGroupName) || `group-${Date.now()}`;
+  const slug = await ensureUniqueSlug(baseSlug);
+  const adminToken = createToken();
+
+  try {
+    await createGroupRecord({
+      name: trimmedGroupName,
+      slug,
+      adminToken,
+      seedPeople: [{ name: trimmedStarterName, type: normalizedStarterType }]
+    });
+    persistAdminToken(slug, adminToken);
+    setMessage("Your new group is ready. Opening your admin view…", false, layers.createGroupMessage);
+    window.location.assign(buildAppUrl(true, slug, adminToken).replace(/\?$/, ""));
+  } catch (error) {
+    console.warn("Create group failed.", error);
+    setCreateGroupBusy(false);
+    updateCreateGroupState();
+    setMessage("Couldn't create your group just yet. Try again in a moment.", true, layers.createGroupMessage);
+  }
+}
+
+function initializeLocalFallback() {
+  const fallbackPeople = INITIAL_PEOPLE.map((person, index) => ({
+    id: String(index + 1),
+    name: person.name,
+    type: person.type,
+    isStarter: index === 0
+  }));
+
+  state.groupId = "local-default";
+  state.groupSlug = DEFAULT_GROUP_SLUG;
+  state.groupName = DEFAULT_GROUP_NAME;
+  state.people = fallbackPeople;
+  state.defaultActivePersonId = fallbackPeople[0].id;
+  state.activePersonId = fallbackPeople[0].id;
+  state.isAdmin = true;
+
   syncNodeInventory();
   syncConnectionInventory();
   updateAdminUi();
   renderFrame(generateCircularPositions(state.people));
+  syncUrlState();
 }
 
 function handleResize() {
@@ -1101,9 +1287,28 @@ function handleResize() {
   renderFrame(generateCircularPositions(state.people));
 }
 
-layers.form.addEventListener("submit", (event) => {
+async function initialize() {
+  await loadCompatibilityMatrix();
+
+  if (!(await initializeCollaboration())) {
+    initializeLocalFallback();
+    updateFormState();
+    updateCreateGroupState();
+    return;
+  }
+
+  const loaded = await loadGroupSnapshot(getRequestedSlug(), getRequestedAdminToken());
+  if (!loaded) {
+    initializeLocalFallback();
+  }
+  subscribeToSharedState();
+  updateFormState();
+  updateCreateGroupState();
+}
+
+layers.form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const created = addPerson(layers.nameInput.value, layers.typeInput.value);
+  const created = await addPerson(layers.nameInput.value, layers.typeInput.value);
   if (created) {
     layers.form.reset();
     layers.typeInput.value = "";
@@ -1112,28 +1317,37 @@ layers.form.addEventListener("submit", (event) => {
   }
 });
 
-layers.nameInput.addEventListener("input", () => {
-  updateFormState();
-});
-
-layers.typeInput.addEventListener("change", () => {
-  updateFormState();
-});
+layers.nameInput.addEventListener("input", updateFormState);
+layers.typeInput.addEventListener("change", updateFormState);
 
 layers.copyShareLink.addEventListener("click", () => {
-  copyLink(false);
+  void copyLink(false);
 });
 
 layers.copyAdminLink.addEventListener("click", () => {
-  copyLink(true);
+  void copyLink(true);
+});
+
+layers.toggleCreateGroup.addEventListener("click", () => {
+  layers.createGroupForm.classList.toggle("is-hidden");
+  if (!layers.createGroupForm.classList.contains("is-hidden")) {
+    layers.groupNameInput.focus();
+  }
+});
+
+layers.groupNameInput.addEventListener("input", updateCreateGroupState);
+layers.starterNameInput.addEventListener("input", updateCreateGroupState);
+layers.starterTypeInput.addEventListener("change", updateCreateGroupState);
+
+layers.createGroupForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void createOwnGroup(
+    layers.groupNameInput.value,
+    layers.starterNameInput.value,
+    layers.starterTypeInput.value
+  );
 });
 
 window.addEventListener("resize", handleResize);
 
-await loadCompatibilityMatrix();
-initialize();
-if (await initializeCollaboration()) {
-  await loadSharedStateFromSupabase();
-  subscribeToSharedState();
-}
-updateFormState();
+await initialize();

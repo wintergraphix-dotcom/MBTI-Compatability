@@ -1,49 +1,46 @@
-# Supabase Realtime Setup
+# Supabase Group Setup
 
-This app can sync shared group membership live across everyone who opens the same shared link.
+This version stores public groups and group members separately, so the app can open a default public group at the root URL and let anyone create their own.
 
-## 1. Create the table
+## 1. Run the schema
 
 Run the SQL in [supabase/schema.sql](/Users/shavil/Documents/New project/supabase/schema.sql) in the Supabase SQL editor.
 
 This creates:
-- `public.chemistry_groups`
-- open anon read/write policies for this prototype
-- Realtime publication for the table
+- `public.chemistry_public_groups`
+- `public.chemistry_group_members`
+- open anon policies for this prototype
+- Realtime publication for both tables
 
-## 2. Add your public client config
+## 2. Check config
 
-Edit [config.js](/Users/shavil/Documents/New project/config.js):
+Make sure [config.js](/Users/shavil/Documents/New project/config.js) includes:
 
 ```js
 window.PERSONALITY_CHEMISTRY_CONFIG = {
   supabaseUrl: "https://YOUR_PROJECT.supabase.co",
   supabaseAnonKey: "YOUR_SUPABASE_ANON_KEY",
-  supabaseTable: "chemistry_groups"
+  supabaseGroupsTable: "chemistry_public_groups",
+  supabaseMembersTable: "chemistry_group_members",
+  defaultGroupSlug: "shavs-crew",
+  defaultGroupName: "Shav's crew"
 };
 ```
 
-For a browser app, the Supabase URL and anon key are public client credentials.
+## 3. Deploy
 
-## 3. Push and redeploy
+Commit and push the frontend changes, then let Vercel redeploy.
 
-Commit and push the updated `config.js`, then Vercel will redeploy.
+## 4. What the app now does
 
-## 4. What syncs live
-
-These changes are shared in realtime:
-- added people
-- removed people
-- the shared default group composition
-
-These stay local to each viewer:
-- which node is currently selected as the active chemistry subject
-- hover state
-- language toggle
-- label visibility toggle
+- The root URL opens the default public group, `Shav's crew`
+- Public group links use clean slugs like `/g/shavs-crew`
+- Admin access stays token-based through the private admin link
+- Participants get the public group view only
+- Anyone can start their own public group from the app
 
 ## Notes
 
-- If `config.js` is blank, the app falls back to local-only mode.
-- This prototype uses open anon policies so anyone with the public site can contribute to the shared group data.
-- For a production-hardened version, the next step would be authenticated writes or signed row-level access.
+- This prototype keeps groups public and writable for anyone with the public link.
+- Admin tokens are stored hashed in Supabase. The browser keeps the plain admin token locally for copy/admin access.
+- If a group slug is missing, the app falls back gracefully instead of crashing.

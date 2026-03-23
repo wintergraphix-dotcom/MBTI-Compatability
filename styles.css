@@ -197,6 +197,14 @@ h1 {
   line-height: 1.25;
 }
 
+.group-name {
+  margin: 0 0 8px;
+  color: #0f7bff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .control-helper {
   margin: 0;
   color: var(--muted);
@@ -283,6 +291,7 @@ h1 {
   gap: 14px;
   align-items: end;
   justify-items: end;
+  width: 100%;
 }
 
 .share-actions {
@@ -307,6 +316,48 @@ h1 {
   text-align: right;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.create-group-card {
+  width: min(100%, 360px);
+  padding: 18px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.05);
+}
+
+.create-group-title {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.create-group-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.create-group-toggle {
+  margin-top: 14px;
+}
+
+.create-group-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.create-group-form.is-hidden {
+  display: none;
+}
+
+.create-group-message {
+  margin-top: 12px;
+  text-align: left;
 }
 
 .map-panel,
@@ -724,6 +775,10 @@ h1 {
     justify-content: flex-start;
   }
 
+  .create-group-card {
+    width: 100%;
+  }
+
 }
 
 @media (max-width: 640px) {
@@ -774,6 +829,11 @@ h1 {
   .member-panel {
     margin-top: 18px;
     padding-top: 20px;
+  }
+
+  .create-group-card {
+    padding: 16px;
+    border-radius: 20px;
   }
 
   .member-list {
