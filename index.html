@@ -25,9 +25,6 @@
         <p class="eyebrow">MBTI compatibility atlas</p>
         <div class="title-row">
           <h1>Our Personality Chemistry</h1>
-          <button class="ghost-button" id="languageToggle" type="button" aria-pressed="false">
-            EN
-          </button>
         </div>
       </header>
 
@@ -51,23 +48,32 @@
               <span>MBTI Type</span>
               <select id="typeInput" name="type">
                 <option value="">Choose type</option>
-                <option value="INTJ">INTJ</option>
-                <option value="INTP">INTP</option>
-                <option value="ENTJ">ENTJ</option>
-                <option value="ENTP">ENTP</option>
-                <option value="INFJ">INFJ</option>
-                <option value="INFP">INFP</option>
-                <option value="ENFJ">ENFJ</option>
-                <option value="ENFP">ENFP</option>
-                <option value="ISTJ">ISTJ</option>
-                <option value="ISFJ">ISFJ</option>
-                <option value="ESTJ">ESTJ</option>
-                <option value="ESFJ">ESFJ</option>
-                <option value="ISTP">ISTP</option>
-                <option value="ISFP">ISFP</option>
-                <option value="ESTP">ESTP</option>
-                <option value="ESFP">ESFP</option>
+                <optgroup label="Analysts">
+                  <option value="INTJ">INTJ - Architect</option>
+                  <option value="INTP">INTP - Logician</option>
+                  <option value="ENTJ">ENTJ - Commander</option>
+                  <option value="ENTP">ENTP - Debater</option>
+                </optgroup>
+                <optgroup label="Diplomats">
+                  <option value="INFJ">INFJ - Advocate</option>
+                  <option value="INFP">INFP - Mediator</option>
+                  <option value="ENFJ">ENFJ - Protagonist</option>
+                  <option value="ENFP">ENFP - Campaigner</option>
+                </optgroup>
+                <optgroup label="Sentinels">
+                  <option value="ISTJ">ISTJ - Logistician</option>
+                  <option value="ISFJ">ISFJ - Defender</option>
+                  <option value="ESTJ">ESTJ - Executive</option>
+                  <option value="ESFJ">ESFJ - Consul</option>
+                </optgroup>
+                <optgroup label="Explorers">
+                  <option value="ISTP">ISTP - Virtuoso</option>
+                  <option value="ISFP">ISFP - Adventurer</option>
+                  <option value="ESTP">ESTP - Entrepreneur</option>
+                  <option value="ESFP">ESFP - Entertainer</option>
+                </optgroup>
               </select>
+              <small class="field-hint">Pick the 4-letter personality type for this person.</small>
             </label>
 
             <button class="primary-button form-button" type="submit">Add Person</button>

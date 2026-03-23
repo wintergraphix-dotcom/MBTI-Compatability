@@ -26,7 +26,6 @@ const layers = {
   svg: document.getElementById("connectionsLayer"),
   nodes: document.getElementById("nodesLayer"),
   status: document.getElementById("statusCopy"),
-  toggle: document.getElementById("languageToggle"),
   form: document.getElementById("personForm"),
   nameInput: document.getElementById("nameInput"),
   typeInput: document.getElementById("typeInput"),
@@ -44,7 +43,6 @@ const state = {
   defaultActivePersonId: DEFAULT_ACTIVE_ID,
   activePersonId: DEFAULT_ACTIVE_ID,
   hoveredId: null,
-  language: "EN",
   showLabels: true,
   positions: {},
   animationFrame: null,
@@ -869,13 +867,6 @@ layers.labelToggle.addEventListener("change", () => {
   state.showLabels = layers.labelToggle.checked;
   updateVisualState();
   syncUrlState();
-});
-
-layers.toggle.addEventListener("click", () => {
-  state.language = state.language === "EN" ? "KO" : "EN";
-  const isEnglish = state.language === "EN";
-  layers.toggle.textContent = state.language;
-  layers.toggle.setAttribute("aria-pressed", String(!isEnglish));
 });
 
 layers.copyShareLink.addEventListener("click", () => {
