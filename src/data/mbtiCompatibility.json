@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "name": "MBTI Compatibility Matrix",
+    "version": "1.0",
+    "source": "Seeded from PersonalityData.org open-source compatibility research (CC BY 4.0) and normalized locally into a symmetric friendship-chemistry lookup table.",
+    "sourceUrl": "https://www.personalitydata.org/16-types/enfj-relationships",
+    "notes": "This seed matrix is an inferred local dataset based on the published matrix notes and example pair values, not a verbatim transcription of the original chart image."
+  },
+  "types": [
+    "INTJ",
+    "INTP",
+    "ENTJ",
+    "ENTP",
+    "INFJ",
+    "INFP",
+    "ENFJ",
+    "ENFP",
+    "ISTJ",
+    "ISFJ",
+    "ESTJ",
+    "ESFJ",
+    "ISTP",
+    "ISFP",
+    "ESTP",
+    "ESFP"
+  ],
+  "scores": [
+    [8, 8, 6, 7, 7, 6, 4, 9, 6, 5, 4, 3, 4, 4, 3, 2],
+    [8, 9, 8, 6, 6, 4, 7, 5, 4, 7, 4, 6, 5, 5, 3],
+    [8, 8, 6, 8, 6, 5, 6, 4, 7, 5, 5, 4, 6, 4],
+    [8, 9, 7, 5, 7, 4, 4, 5, 5, 4, 4, 5, 5],
+    [9, 8, 7, 8, 6, 6, 4, 4, 2, 5, 3, 3],
+    [9, 9, 8, 4, 5, 3, 4, 3, 6, 2, 3],
+    [9, 8, 4, 5, 4, 6, 1, 6, 3, 5],
+    [9, 3, 4, 4, 5, 3, 5, 4, 6],
+    [8, 7, 8, 6, 5, 4, 6, 8],
+    [8, 6, 8, 4, 6, 8, 7],
+    [8, 7, 8, 4, 7, 5],
+    [8, 3, 8, 5, 7],
+    [7, 6, 8, 6],
+    [8, 6, 7],
+    [7, 8],
+    [7]
+  ]
+}

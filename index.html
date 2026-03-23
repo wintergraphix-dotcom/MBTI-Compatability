@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Our Personality Chemistry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="background-pattern" aria-hidden="true">
+        <span class="pattern-line line-a"></span>
+        <span class="pattern-line line-b"></span>
+        <span class="pattern-line line-c"></span>
+        <span class="pattern-line line-d"></span>
+      </div>
+
+      <header class="topbar">
+        <p class="eyebrow">MBTI compatibility atlas</p>
+        <div class="title-row">
+          <h1>Our Personality Chemistry</h1>
+          <button class="ghost-button" id="languageToggle" type="button" aria-pressed="false">
+            EN
+          </button>
+        </div>
+      </header>
+
+      <main class="map-card">
+        <section class="control-panel" aria-label="Add a person">
+          <div class="control-copy">
+            <p class="control-title">Add someone to the chemistry map</p>
+            <p class="control-helper">
+              MBTI type drives the relationship score, so every new person updates the map instantly.
+            </p>
+            <p class="admin-badge" id="adminBadge">Group starter mode</p>
+          </div>
+
+          <form class="person-form" id="personForm">
+            <label class="field">
+              <span>Name</span>
+              <input id="nameInput" name="name" type="text" maxlength="24" placeholder="Enter a name" />
+            </label>
+
+            <label class="field">
+              <span>MBTI Type</span>
+              <select id="typeInput" name="type">
+                <option value="">Choose type</option>
+                <option value="INTJ">INTJ</option>
+                <option value="INTP">INTP</option>
+                <option value="ENTJ">ENTJ</option>
+                <option value="ENTP">ENTP</option>
+                <option value="INFJ">INFJ</option>
+                <option value="INFP">INFP</option>
+                <option value="ENFJ">ENFJ</option>
+                <option value="ENFP">ENFP</option>
+                <option value="ISTJ">ISTJ</option>
+                <option value="ISFJ">ISFJ</option>
+                <option value="ESTJ">ESTJ</option>
+                <option value="ESFJ">ESFJ</option>
+                <option value="ISTP">ISTP</option>
+                <option value="ISFP">ISFP</option>
+                <option value="ESTP">ESTP</option>
+                <option value="ESFP">ESFP</option>
+              </select>
+            </label>
+
+            <button class="primary-button form-button" type="submit">Add Person</button>
+          </form>
+
+          <div class="control-meta">
+            <label class="toggle-row">
+              <input id="labelToggle" type="checkbox" checked />
+              <span>Show line labels</span>
+            </label>
+            <div class="share-actions">
+              <button class="ghost-button share-button" id="copyShareLink" type="button">Copy Share Link</button>
+              <button class="ghost-button share-button" id="copyAdminLink" type="button">Copy Admin Link</button>
+            </div>
+            <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="admin-panel" aria-label="Admin controls">
+          <div class="admin-panel-copy">
+            <p class="control-title">Member controls</p>
+            <p class="control-helper" id="adminHelper">
+              The group starter can remove people and share invite links for others to add themselves.
+            </p>
+          </div>
+          <div class="member-list" id="memberList"></div>
+        </section>
+
+        <div class="legend" aria-label="Compatibility legend">
+          <span><i class="swatch disaster"></i>Disaster</span>
+          <span><i class="swatch strained"></i>Strained</span>
+          <span><i class="swatch neutral"></i>Neutral</span>
+          <span><i class="swatch strong"></i>Strong</span>
+          <span><i class="swatch elite"></i>Elite</span>
+        </div>
+
+        <section class="map-stage" id="mapStage" aria-label="Personality chemistry map">
+          <svg class="connections-layer" id="connectionsLayer" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="nodes-layer" id="nodesLayer"></div>
+        </section>
+      </main>
+
+      <footer class="footer-bar">
+        <div class="status-copy" id="statusCopy">Your chemistry: Shav</div>
+        <button class="primary-button" id="resetButton" type="button">START</button>
+      </footer>
+    </div>
+
+    <script type="module" src="./script.js"></script>
+  </body>
+</html>
