@@ -19,6 +19,7 @@ const INITIAL_PEOPLE = [
 
 const DEFAULT_ACTIVE_ID = INITIAL_PEOPLE[0].id;
 const DURATION = 460;
+const APP_CONFIG = window.PERSONALITY_CHEMISTRY_CONFIG || {};
 
 const layers = {
   stage: document.getElementById("mapStage"),
@@ -51,6 +52,15 @@ const state = {
   groupId: "",
   adminKey: "",
   isAdmin: true
+};
+
+const collaboration = {
+  enabled: false,
+  client: null,
+  channel: null,
+  table: APP_CONFIG.supabaseTable || "chemistry_groups",
+  bootstrapped: false,
+  lastSharedSignature: ""
 };
 
 const nodeElements = new Map();
@@ -120,6 +130,18 @@ function getSerializableState() {
     activePersonId: state.activePersonId,
     people: state.people
   };
+}
+
+function getSharedGroupState() {
+  return {
+    groupId: state.groupId,
+    defaultActivePersonId: state.defaultActivePersonId,
+    people: state.people
+  };
+}
+
+function getSharedStateSignature(snapshot = getSharedGroupState()) {
+  return JSON.stringify(snapshot);
 }
 
 function getAdminStorageKey(groupId) {
@@ -212,6 +234,162 @@ function loadStateFromUrl() {
   }
 
   syncUrlState();
+}
+
+function applySharedGroupState(snapshot, { animate = true } = {}) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return;
+  }
+
+  const people = sanitizePeople(snapshot.people);
+  const defaultExists = people.some((person) => person.id === snapshot.defaultActivePersonId);
+  const activeStillExists = people.some((person) => person.id === state.activePersonId);
+
+  state.people = people;
+  state.defaultActivePersonId = defaultExists ? String(snapshot.defaultActivePersonId) : people[0].id;
+  state.activePersonId = activeStillExists ? state.activePersonId : state.defaultActivePersonId;
+  state.nextId =
+    Math.max(
+      0,
+      ...people.map((person) => {
+        const numeric = Number.parseInt(person.id, 10);
+        return Number.isNaN(numeric) ? 0 : numeric;
+      })
+    ) + 1;
+
+  collaboration.lastSharedSignature = getSharedStateSignature({
+    groupId: state.groupId,
+    defaultActivePersonId: state.defaultActivePersonId,
+    people: state.people
+  });
+
+  syncNodeInventory();
+  syncConnectionInventory();
+  updateAdminUi();
+
+  const nextPositions = generateCircularPositions(state.people);
+  if (animate && Object.keys(state.positions).length) {
+    animateToPositions(nextPositions);
+  } else {
+    renderFrame(nextPositions);
+  }
+
+  syncUrlState();
+}
+
+async function initializeCollaboration() {
+  const supabaseUrl = APP_CONFIG.supabaseUrl;
+  const supabaseAnonKey = APP_CONFIG.supabaseAnonKey;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return false;
+  }
+
+  try {
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    collaboration.client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
+    collaboration.enabled = true;
+    return true;
+  } catch (error) {
+    console.warn("Supabase client failed to load. Falling back to local-only mode.", error);
+    collaboration.enabled = false;
+    return false;
+  }
+}
+
+async function persistSharedState() {
+  if (!collaboration.enabled || !collaboration.client || !state.groupId) {
+    return;
+  }
+
+  const snapshot = getSharedGroupState();
+  const signature = getSharedStateSignature(snapshot);
+  collaboration.lastSharedSignature = signature;
+
+  const { error } = await collaboration.client.from(collaboration.table).upsert(
+    {
+      group_id: state.groupId,
+      state: snapshot,
+      updated_at: new Date().toISOString()
+    },
+    {
+      onConflict: "group_id"
+    }
+  );
+
+  if (error) {
+    console.warn("Supabase sync write failed.", error);
+    setMessage("Live sync is unavailable right now. Local changes still work.", true);
+  }
+}
+
+async function loadSharedStateFromSupabase() {
+  if (!collaboration.enabled || !collaboration.client || !state.groupId) {
+    return;
+  }
+
+  const { data, error } = await collaboration.client
+    .from(collaboration.table)
+    .select("state")
+    .eq("group_id", state.groupId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Supabase sync read failed.", error);
+    return;
+  }
+
+  if (data?.state) {
+    applySharedGroupState(data.state, { animate: false });
+    collaboration.bootstrapped = true;
+    return;
+  }
+
+  await persistSharedState();
+  collaboration.bootstrapped = true;
+}
+
+function subscribeToSharedState() {
+  if (!collaboration.enabled || !collaboration.client || !state.groupId) {
+    return;
+  }
+
+  if (collaboration.channel) {
+    collaboration.client.removeChannel(collaboration.channel);
+    collaboration.channel = null;
+  }
+
+  collaboration.channel = collaboration.client
+    .channel(`chemistry-group-${state.groupId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: collaboration.table,
+        filter: `group_id=eq.${state.groupId}`
+      },
+      (payload) => {
+        const incomingState = payload.new?.state || payload.old?.state;
+        if (!incomingState) {
+          return;
+        }
+
+        const signature = getSharedStateSignature(incomingState);
+        if (signature === collaboration.lastSharedSignature) {
+          return;
+        }
+
+        applySharedGroupState(incomingState);
+      }
+    )
+    .subscribe();
 }
 
 function getStageMetrics() {
@@ -613,6 +791,7 @@ function addPerson(name, type) {
   state.hoveredId = null;
   animateToPositions(generateCircularPositions(state.people));
   syncUrlState();
+  void persistSharedState();
   setMessage(`${person.name} joined the map as ${person.type}.`);
   return true;
 }
@@ -645,6 +824,7 @@ function removePerson(id) {
   state.hoveredId = null;
   animateToPositions(generateCircularPositions(state.people));
   syncUrlState();
+  void persistSharedState();
   setMessage(`${person.name} was removed from the group.`);
 }
 
@@ -710,3 +890,7 @@ window.addEventListener("resize", handleResize);
 
 await loadCompatibilityMatrix();
 initialize();
+if (await initializeCollaboration()) {
+  await loadSharedStateFromSupabase();
+  subscribeToSharedState();
+}
