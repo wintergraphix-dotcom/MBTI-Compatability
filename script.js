@@ -39,8 +39,10 @@ const layers = {
   axisTf: document.getElementById("axisTf"),
   axisJp: document.getElementById("axisJp"),
   quickTypeResult: document.getElementById("quickTypeResult"),
-  useQuickTypeButton: document.getElementById("useQuickTypeButton"),
   addButton: document.getElementById("addPersonButton"),
+  addButtonCopy: document.getElementById("addButtonCopy"),
+  progressDotName: document.getElementById("progressDotName"),
+  progressDotType: document.getElementById("progressDotType"),
   formMessage: document.getElementById("formMessage"),
   adminBadge: document.getElementById("adminBadge"),
   adminHelper: document.getElementById("adminHelper"),
@@ -228,7 +230,8 @@ function buildAppUrl(includeAdminToken = false, slug = state.groupSlug, adminTok
 }
 
 function syncUrlState() {
-  const nextUrl = buildAppUrl(false);
+  const shouldKeepAdminInUrl = state.isAdmin && state.groupSlug === DEFAULT_GROUP_SLUG;
+  const nextUrl = buildAppUrl(shouldKeepAdminInUrl);
   window.history.replaceState({}, "", nextUrl);
 }
 
@@ -377,7 +380,7 @@ function setMessage(message, isError = false, target = layers.formMessage) {
 
 function setButtonBusy(isBusy) {
   layers.addButton.disabled = isBusy;
-  layers.addButton.textContent = isBusy ? "Adding..." : "Add to circle";
+  layers.addButtonCopy.textContent = isBusy ? "Adding..." : "Add to circle";
 }
 
 function setCreateGroupBusy(isBusy) {
@@ -388,7 +391,29 @@ function setCreateGroupBusy(isBusy) {
 function updateFormState() {
   const hasName = layers.nameInput.value.trim().length > 0;
   const hasType = layers.typeInput.value.trim().length > 0;
-  layers.addButton.disabled = !(hasName && hasType);
+  const isComplete = hasName && hasType;
+
+  layers.addButton.disabled = !isComplete;
+  layers.addButton.classList.toggle("is-progress", !isComplete && (hasName || hasType));
+  layers.progressDotName.classList.toggle("is-complete", hasName);
+  layers.progressDotType.classList.toggle("is-complete", hasType);
+
+  if (isComplete) {
+    layers.addButtonCopy.textContent = "Add to circle";
+    return;
+  }
+
+  if (hasType && !hasName) {
+    layers.addButtonCopy.textContent = "Add a name to continue";
+    return;
+  }
+
+  if (hasName && !hasType) {
+    layers.addButtonCopy.textContent = "Choose a type to continue";
+    return;
+  }
+
+  layers.addButtonCopy.textContent = "Add to circle";
 }
 
 function getSelectedMbtiMode() {
@@ -420,7 +445,7 @@ function syncMbtiModeUi() {
   layers.mbtiDropdownField.classList.toggle("is-hidden", !isKnown);
   layers.quickTester.classList.toggle("is-hidden", isKnown);
 
-  if (!isKnown && !layers.typeInput.value) {
+  if (!isKnown) {
     layers.typeInput.value = updateQuickTypePreview();
   }
 
@@ -1156,7 +1181,10 @@ async function loadGroupSnapshot(slug, requestedAdminToken = "") {
 
   const members = await fetchGroupMembers(group.id);
   const storedAdminToken = getStoredAdminToken(group.slug);
-  const candidateToken = requestedAdminToken || storedAdminToken;
+  let candidateToken = requestedAdminToken || storedAdminToken;
+  if (!candidateToken && group.slug === DEFAULT_GROUP_SLUG && storedAdminToken) {
+    candidateToken = storedAdminToken;
+  }
   let isAdmin = false;
   let validAdminToken = "";
 
@@ -1471,12 +1499,6 @@ layers.mbtiModeInputs.forEach((input) => {
       updateFormState();
     }
   });
-});
-
-layers.useQuickTypeButton.addEventListener("click", () => {
-  layers.typeInput.value = updateQuickTypePreview();
-  setMessage(`Using ${layers.typeInput.value} as the best-guess type.`);
-  updateFormState();
 });
 
 layers.copyShareLink.addEventListener("click", () => {

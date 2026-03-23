@@ -93,12 +93,14 @@
                 <div class="mbti-path-options" role="radiogroup" aria-label="MBTI input mode">
                   <label class="mbti-path-option is-selected" id="knowMbtiOption">
                     <input type="radio" name="mbtiMode" value="known" checked />
+                    <span class="mbti-radio-indicator" aria-hidden="true"></span>
                     <span class="mbti-path-label">I know their MBTI</span>
                     <span class="mbti-path-caption">Choose it from the list</span>
                   </label>
 
                   <label class="mbti-path-option" id="guessMbtiOption">
                     <input type="radio" name="mbtiMode" value="guided" />
+                    <span class="mbti-radio-indicator" aria-hidden="true"></span>
                     <span class="mbti-path-label">I don’t know their MBTI</span>
                     <span class="mbti-path-caption">Use the quick type finder</span>
                   </label>
@@ -184,22 +186,23 @@
                     </label>
                   </div>
 
-                  <div class="quick-tester-result">
-                    <div>
-                      <span class="quick-result-label">Estimated type</span>
-                      <strong class="quick-result-value" id="quickTypeResult">INTJ</strong>
-                    </div>
-                    <button class="ghost-button quick-use-button" id="useQuickTypeButton" type="button">
-                      Use this type
-                    </button>
+                <div class="quick-tester-result">
+                  <div>
+                    <span class="quick-result-label">Estimated type</span>
+                    <strong class="quick-result-value" id="quickTypeResult">INTJ</strong>
                   </div>
-                </section>
-              </div>
+                </div>
+              </section>
+            </div>
 
-              <button class="primary-button form-button" id="addPersonButton" type="submit" disabled>
-                Add to circle
-              </button>
-            </form>
+            <button class="primary-button form-button" id="addPersonButton" type="submit" disabled>
+              <span class="button-copy" id="addButtonCopy">Add to circle</span>
+              <span class="button-progress" id="addButtonProgress" aria-hidden="true">
+                <span class="progress-dot" id="progressDotName"></span>
+                <span class="progress-dot" id="progressDotType"></span>
+              </span>
+            </button>
+          </form>
           </div>
 
           <aside class="control-side">
