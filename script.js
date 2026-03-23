@@ -13,6 +13,19 @@ const INITIAL_PEOPLE = [
   { name: "nesh", type: "ENFP" }
 ];
 
+const LEGACY_DEFAULT_PEOPLE = [
+  { name: "Shav", type: "ENFJ" },
+  { name: "Ray", type: "ENFP" },
+  { name: "Viv", type: "ISTJ" },
+  { name: "Chelsea", type: "INFJ" },
+  { name: "Ange", type: "INTP" },
+  { name: "Daniel", type: "INFP" },
+  { name: "Nghi", type: "INFJ" },
+  { name: "Michelle", type: "INTP" },
+  { name: "Jess", type: "INFJ" },
+  { name: "Jason", type: "INTJ" }
+];
+
 const DURATION = 460;
 const APP_CONFIG = window.PERSONALITY_CHEMISTRY_CONFIG || {};
 
@@ -988,6 +1001,13 @@ function getMembersSignature(members) {
     .join("|");
 }
 
+function getSeedSignature(seedPeople) {
+  return [...seedPeople]
+    .map((person) => `${person.name.toLowerCase()}::${person.type.toUpperCase()}`)
+    .sort()
+    .join("|");
+}
+
 async function ensureUniqueSlug(baseSlug) {
   let slug = baseSlug;
   let index = 2;
@@ -1058,20 +1078,19 @@ async function createGroupRecord({ name, slug, adminToken, seedPeople }) {
 async function syncDefaultGroupSeed(group) {
   const existingMembers = await fetchGroupMembers(group.id);
   const existingSignature = getMembersSignature(existingMembers);
-  const desiredSignature = [...INITIAL_PEOPLE]
-    .map((person) => `${person.name.toLowerCase()}::${person.type}`)
-    .sort()
-    .join("|");
+  const desiredSignature = getSeedSignature(INITIAL_PEOPLE);
+  const legacySignature = getSeedSignature(LEGACY_DEFAULT_PEOPLE);
   const starterMember = existingMembers.find((member) => member.is_starter);
   const shavMember = existingMembers.find((member) => member.name.toLowerCase() === "shav");
-  const needsSync =
-    existingSignature !== desiredSignature ||
-    !shavMember ||
-    !starterMember ||
-    starterMember.name.toLowerCase() !== "shav";
+  const needsStarterRepair =
+    existingSignature === desiredSignature &&
+    (!shavMember || !starterMember || starterMember.name.toLowerCase() !== "shav");
+  const needsLegacyMigration =
+    existingSignature === legacySignature ||
+    existingMembers.length === 0;
 
-  if (!needsSync) {
-    if (group.default_active_person_id !== shavMember.id) {
+  if (!needsLegacyMigration) {
+    if (needsStarterRepair && shavMember && group.default_active_person_id !== shavMember.id) {
       await collaboration.client
         .from(collaboration.groupsTable)
         .update({
