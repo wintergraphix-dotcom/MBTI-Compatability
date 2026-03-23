@@ -550,6 +550,12 @@ function setButtonBusy(isBusy) {
   layers.addButton.textContent = isBusy ? "Adding..." : "Add to circle";
 }
 
+function updateFormState() {
+  const hasName = layers.nameInput.value.trim().length > 0;
+  const hasType = layers.typeInput.value.trim().length > 0;
+  layers.addButton.disabled = !(hasName && hasType);
+}
+
 function getPersonById(id) {
   return state.people.find((person) => person.id === id) || null;
 }
@@ -986,12 +992,14 @@ function addPerson(name, type) {
 
   if (!trimmedName) {
     setButtonBusy(false);
+    updateFormState();
     setMessage("Add a name first.", true);
     return false;
   }
 
   if (!parseMBTI(normalizedType)) {
     setButtonBusy(false);
+    updateFormState();
     setMessage("Choose an MBTI type from the list.", true);
     return false;
   }
@@ -1002,6 +1010,7 @@ function addPerson(name, type) {
 
   if (duplicate) {
     setButtonBusy(false);
+    updateFormState();
     setMessage("That name is already in the circle.", true);
     return false;
   }
@@ -1026,6 +1035,7 @@ function addPerson(name, type) {
   syncUrlState();
   void persistSharedState();
   setButtonBusy(false);
+  updateFormState();
   setMessage(`${person.name} joined the circle.`);
   return true;
 }
@@ -1098,7 +1108,16 @@ layers.form.addEventListener("submit", (event) => {
     layers.form.reset();
     layers.typeInput.value = "";
     layers.nameInput.focus();
+    updateFormState();
   }
+});
+
+layers.nameInput.addEventListener("input", () => {
+  updateFormState();
+});
+
+layers.typeInput.addEventListener("change", () => {
+  updateFormState();
 });
 
 layers.copyShareLink.addEventListener("click", () => {
@@ -1117,3 +1136,4 @@ if (await initializeCollaboration()) {
   await loadSharedStateFromSupabase();
   subscribeToSharedState();
 }
+updateFormState();

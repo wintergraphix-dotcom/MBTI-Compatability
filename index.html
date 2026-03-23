@@ -78,12 +78,12 @@
 
           <form class="person-form" id="personForm">
             <label class="field">
-              <span>Name</span>
+              <span>Name <strong class="required-mark" aria-hidden="true">*</strong></span>
               <input id="nameInput" name="name" type="text" maxlength="24" placeholder="Add a first name" />
             </label>
 
             <label class="field">
-              <span>MBTI Type</span>
+              <span>MBTI Type <strong class="required-mark" aria-hidden="true">*</strong></span>
               <select id="typeInput" name="type">
                 <option value="">Choose type</option>
                 <optgroup label="Analysts">
@@ -114,7 +114,7 @@
               <small class="field-hint">Pick the 4-letter personality type for this person.</small>
             </label>
 
-            <button class="primary-button form-button" id="addPersonButton" type="submit">
+            <button class="primary-button form-button" id="addPersonButton" type="submit" disabled>
               Add to circle
             </button>
           </form>

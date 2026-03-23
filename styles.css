@@ -240,6 +240,11 @@ h1 {
   font-weight: 500;
 }
 
+.required-mark {
+  color: #0f7bff;
+  font-weight: 700;
+}
+
 .field-hint {
   color: var(--muted);
   font-size: 0.78rem;
@@ -648,8 +653,22 @@ h1 {
 
 .primary-button {
   padding: 14px 24px;
+  color: #ffffff;
   font-weight: 700;
   letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #0f7bff, #2d9cff);
+  border-color: rgba(15, 123, 255, 0.28);
+  box-shadow:
+    0 16px 34px rgba(15, 123, 255, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.72);
+  background: linear-gradient(135deg, #9bb8da, #b8c9dc);
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 10px 22px rgba(148, 163, 184, 0.18);
 }
 
 .footer-bar {
