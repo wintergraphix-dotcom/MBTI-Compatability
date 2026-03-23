@@ -6,15 +6,11 @@ import {
 
 const INITIAL_PEOPLE = [
   { name: "Shav", type: "ENFJ" },
-  { name: "Ray", type: "ENFP" },
-  { name: "Viv", type: "ISTJ" },
-  { name: "Chelsea", type: "INFJ" },
-  { name: "Ange", type: "INTP" },
-  { name: "Daniel", type: "INFP" },
-  { name: "Nghi", type: "INFJ" },
-  { name: "Michelle", type: "INTP" },
-  { name: "Jess", type: "INFJ" },
-  { name: "Jason", type: "INTJ" }
+  { name: "Devish", type: "ENFJ" },
+  { name: "Ray", type: "ISFP" },
+  { name: "Adneel", type: "ENTP" },
+  { name: "Nav", type: "INTP" },
+  { name: "nesh", type: "ENFP" }
 ];
 
 const DURATION = 460;
@@ -33,6 +29,17 @@ const layers = {
   form: document.getElementById("personForm"),
   nameInput: document.getElementById("nameInput"),
   typeInput: document.getElementById("typeInput"),
+  mbtiModeInputs: document.querySelectorAll('input[name="mbtiMode"]'),
+  knowMbtiOption: document.getElementById("knowMbtiOption"),
+  guessMbtiOption: document.getElementById("guessMbtiOption"),
+  mbtiDropdownField: document.getElementById("mbtiDropdownField"),
+  quickTester: document.getElementById("quickTester"),
+  axisIe: document.getElementById("axisIe"),
+  axisSn: document.getElementById("axisSn"),
+  axisTf: document.getElementById("axisTf"),
+  axisJp: document.getElementById("axisJp"),
+  quickTypeResult: document.getElementById("quickTypeResult"),
+  useQuickTypeButton: document.getElementById("useQuickTypeButton"),
   addButton: document.getElementById("addPersonButton"),
   formMessage: document.getElementById("formMessage"),
   adminBadge: document.getElementById("adminBadge"),
@@ -75,6 +82,12 @@ const collaboration = {
 
 const nodeElements = new Map();
 const connectionElements = new Map();
+const quickAxisMap = [
+  { input: "axisIe", letters: ["I", "E"] },
+  { input: "axisSn", letters: ["S", "N"] },
+  { input: "axisTf", letters: ["T", "F"] },
+  { input: "axisJp", letters: ["J", "P"] }
+];
 
 function getSvgDefs() {
   let defs = layers.svg.querySelector("defs");
@@ -376,6 +389,42 @@ function updateFormState() {
   const hasName = layers.nameInput.value.trim().length > 0;
   const hasType = layers.typeInput.value.trim().length > 0;
   layers.addButton.disabled = !(hasName && hasType);
+}
+
+function getSelectedMbtiMode() {
+  const selected = Array.from(layers.mbtiModeInputs).find((input) => input.checked);
+  return selected ? selected.value : "known";
+}
+
+function calculateQuickType() {
+  return quickAxisMap
+    .map(({ input, letters }) => {
+      const value = Number(layers[input].value || 0);
+      return value >= 0 ? letters[1] : letters[0];
+    })
+    .join("");
+}
+
+function updateQuickTypePreview() {
+  const estimatedType = calculateQuickType();
+  layers.quickTypeResult.textContent = estimatedType;
+  return estimatedType;
+}
+
+function syncMbtiModeUi() {
+  const mode = getSelectedMbtiMode();
+  const isKnown = mode === "known";
+
+  layers.knowMbtiOption.classList.toggle("is-selected", isKnown);
+  layers.guessMbtiOption.classList.toggle("is-selected", !isKnown);
+  layers.mbtiDropdownField.classList.toggle("is-hidden", !isKnown);
+  layers.quickTester.classList.toggle("is-hidden", isKnown);
+
+  if (!isKnown && !layers.typeInput.value) {
+    layers.typeInput.value = updateQuickTypePreview();
+  }
+
+  updateFormState();
 }
 
 function updateCreateGroupState() {
@@ -907,6 +956,13 @@ async function fetchGroupMembers(groupId) {
   return data || [];
 }
 
+function getMembersSignature(members) {
+  return members
+    .map((member) => `${String(member.name).toLowerCase()}::${String(member.type).toUpperCase()}`)
+    .sort()
+    .join("|");
+}
+
 async function ensureUniqueSlug(baseSlug) {
   let slug = baseSlug;
   let index = 2;
@@ -974,9 +1030,84 @@ async function createGroupRecord({ name, slug, adminToken, seedPeople }) {
   };
 }
 
+async function syncDefaultGroupSeed(group) {
+  const existingMembers = await fetchGroupMembers(group.id);
+  const existingSignature = getMembersSignature(existingMembers);
+  const desiredSignature = [...INITIAL_PEOPLE]
+    .map((person) => `${person.name.toLowerCase()}::${person.type}`)
+    .sort()
+    .join("|");
+  const starterMember = existingMembers.find((member) => member.is_starter);
+  const shavMember = existingMembers.find((member) => member.name.toLowerCase() === "shav");
+  const needsSync =
+    existingSignature !== desiredSignature ||
+    !shavMember ||
+    !starterMember ||
+    starterMember.name.toLowerCase() !== "shav";
+
+  if (!needsSync) {
+    if (group.default_active_person_id !== shavMember.id) {
+      await collaboration.client
+        .from(collaboration.groupsTable)
+        .update({
+          default_active_person_id: shavMember.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", group.id);
+    }
+    return;
+  }
+
+  const existingIds = existingMembers.map((member) => member.id);
+  if (existingIds.length) {
+    const { error: deleteError } = await collaboration.client
+      .from(collaboration.membersTable)
+      .delete()
+      .in("id", existingIds);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+  }
+
+  const { data: insertedMembers, error: insertError } = await collaboration.client
+    .from(collaboration.membersTable)
+    .insert(
+      INITIAL_PEOPLE.map((person, index) => ({
+        group_id: group.id,
+        name: person.name,
+        type: person.type,
+        is_starter: index === 0
+      }))
+    )
+    .select("id, name, type, is_starter, created_at");
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  const shavSeed = insertedMembers.find((member) => member.name.toLowerCase() === "shav");
+  if (!shavSeed) {
+    return;
+  }
+
+  const { error: updateGroupError } = await collaboration.client
+    .from(collaboration.groupsTable)
+    .update({
+      default_active_person_id: shavSeed.id,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", group.id);
+
+  if (updateGroupError) {
+    throw updateGroupError;
+  }
+}
+
 async function ensureDefaultGroupExists() {
   const existing = await fetchGroupBySlug(DEFAULT_GROUP_SLUG);
   if (existing) {
+    await syncDefaultGroupSeed(existing);
     return existing;
   }
 
@@ -1312,6 +1443,15 @@ layers.form.addEventListener("submit", async (event) => {
   if (created) {
     layers.form.reset();
     layers.typeInput.value = "";
+    const defaultMode = layers.mbtiModeInputs[0];
+    if (defaultMode) {
+      defaultMode.checked = true;
+    }
+    [layers.axisIe, layers.axisSn, layers.axisTf, layers.axisJp].forEach((input) => {
+      input.value = "0";
+    });
+    updateQuickTypePreview();
+    syncMbtiModeUi();
     layers.nameInput.focus();
     updateFormState();
   }
@@ -1319,6 +1459,25 @@ layers.form.addEventListener("submit", async (event) => {
 
 layers.nameInput.addEventListener("input", updateFormState);
 layers.typeInput.addEventListener("change", updateFormState);
+layers.mbtiModeInputs.forEach((input) => {
+  input.addEventListener("change", syncMbtiModeUi);
+});
+
+[layers.axisIe, layers.axisSn, layers.axisTf, layers.axisJp].forEach((input) => {
+  input.addEventListener("input", () => {
+    const estimatedType = updateQuickTypePreview();
+    if (getSelectedMbtiMode() === "guided") {
+      layers.typeInput.value = estimatedType;
+      updateFormState();
+    }
+  });
+});
+
+layers.useQuickTypeButton.addEventListener("click", () => {
+  layers.typeInput.value = updateQuickTypePreview();
+  setMessage(`Using ${layers.typeInput.value} as the best-guess type.`);
+  updateFormState();
+});
 
 layers.copyShareLink.addEventListener("click", () => {
   void copyLink(false);
@@ -1351,3 +1510,5 @@ layers.createGroupForm.addEventListener("submit", (event) => {
 window.addEventListener("resize", handleResize);
 
 await initialize();
+updateQuickTypePreview();
+syncMbtiModeUi();

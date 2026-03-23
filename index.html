@@ -68,69 +68,163 @@
         </section>
 
         <section class="control-panel" aria-label="Add a person">
-          <div class="control-copy">
-            <p class="section-kicker">Add someone</p>
-            <p class="control-title">Bring a new person into the circle</p>
-            <p class="control-helper">
-              Choose their MBTI type and the chemistry map updates right away.
-            </p>
-            <p class="admin-badge" id="adminBadge">Group starter mode</p>
+          <div class="control-main">
+            <div class="control-copy">
+              <p class="section-kicker">Add someone</p>
+              <p class="control-title">Bring a new person into the circle</p>
+              <p class="control-helper">
+                If you already know their type, pick it. If not, do a quick check here and we’ll
+                help you estimate it.
+              </p>
+            </div>
+
+            <form class="person-form" id="personForm">
+              <label class="field">
+                <span>Name <strong class="required-mark" aria-hidden="true">*</strong></span>
+                <input id="nameInput" name="name" type="text" maxlength="24" placeholder="Add a first name" />
+              </label>
+
+              <section class="mbti-path-card" aria-label="MBTI path chooser">
+                <div class="mbti-path-copy">
+                  <span class="mbti-path-title">Do you know their MBTI?</span>
+                  <small class="field-hint">Pick a type if you already know it, or do a quick check.</small>
+                </div>
+
+                <div class="mbti-path-options" role="radiogroup" aria-label="MBTI input mode">
+                  <label class="mbti-path-option is-selected" id="knowMbtiOption">
+                    <input type="radio" name="mbtiMode" value="known" checked />
+                    <span class="mbti-path-label">I know their MBTI</span>
+                    <span class="mbti-path-caption">Choose it from the list</span>
+                  </label>
+
+                  <label class="mbti-path-option" id="guessMbtiOption">
+                    <input type="radio" name="mbtiMode" value="guided" />
+                    <span class="mbti-path-label">I don’t know their MBTI</span>
+                    <span class="mbti-path-caption">Use the quick type finder</span>
+                  </label>
+                </div>
+              </section>
+
+              <div class="mbti-input-region" id="mbtiInputRegion">
+                <label class="field mbti-dropdown-field" id="mbtiDropdownField">
+                  <span>MBTI Type <strong class="required-mark" aria-hidden="true">*</strong></span>
+                  <select id="typeInput" name="type">
+                    <option value="">Choose type</option>
+                    <optgroup label="Analysts">
+                      <option value="INTJ">INTJ - Architect</option>
+                      <option value="INTP">INTP - Logician</option>
+                      <option value="ENTJ">ENTJ - Commander</option>
+                      <option value="ENTP">ENTP - Debater</option>
+                    </optgroup>
+                    <optgroup label="Diplomats">
+                      <option value="INFJ">INFJ - Advocate</option>
+                      <option value="INFP">INFP - Mediator</option>
+                      <option value="ENFJ">ENFJ - Protagonist</option>
+                      <option value="ENFP">ENFP - Campaigner</option>
+                    </optgroup>
+                    <optgroup label="Sentinels">
+                      <option value="ISTJ">ISTJ - Logistician</option>
+                      <option value="ISFJ">ISFJ - Defender</option>
+                      <option value="ESTJ">ESTJ - Executive</option>
+                      <option value="ESFJ">ESFJ - Consul</option>
+                    </optgroup>
+                    <optgroup label="Explorers">
+                      <option value="ISTP">ISTP - Virtuoso</option>
+                      <option value="ISFP">ISFP - Adventurer</option>
+                      <option value="ESTP">ESTP - Entrepreneur</option>
+                      <option value="ESFP">ESFP - Entertainer</option>
+                    </optgroup>
+                  </select>
+                  <small class="field-hint">Pick the 4-letter personality type for this person.</small>
+                </label>
+
+                <section class="quick-tester is-hidden" id="quickTester" aria-label="Quick MBTI finder">
+                  <div class="quick-tester-copy">
+                    <span class="quick-tester-title">Quick type finder</span>
+                    <p class="quick-tester-helper">
+                      Not sure? Slide toward whatever feels more like them. We’ll turn it into a best-guess type.
+                    </p>
+                  </div>
+
+                  <div class="axis-list">
+                    <label class="axis-card">
+                      <span class="axis-label">Introversion ↔ Extraversion</span>
+                      <div class="axis-scale">
+                        <span>I</span>
+                        <input id="axisIe" type="range" min="-100" max="100" step="1" value="0" />
+                        <span>E</span>
+                      </div>
+                    </label>
+
+                    <label class="axis-card">
+                      <span class="axis-label">Sensing ↔ Intuition</span>
+                      <div class="axis-scale">
+                        <span>S</span>
+                        <input id="axisSn" type="range" min="-100" max="100" step="1" value="0" />
+                        <span>N</span>
+                      </div>
+                    </label>
+
+                    <label class="axis-card">
+                      <span class="axis-label">Thinking ↔ Feeling</span>
+                      <div class="axis-scale">
+                        <span>T</span>
+                        <input id="axisTf" type="range" min="-100" max="100" step="1" value="0" />
+                        <span>F</span>
+                      </div>
+                    </label>
+
+                    <label class="axis-card">
+                      <span class="axis-label">Judging ↔ Perceiving</span>
+                      <div class="axis-scale">
+                        <span>J</span>
+                        <input id="axisJp" type="range" min="-100" max="100" step="1" value="0" />
+                        <span>P</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="quick-tester-result">
+                    <div>
+                      <span class="quick-result-label">Estimated type</span>
+                      <strong class="quick-result-value" id="quickTypeResult">INTJ</strong>
+                    </div>
+                    <button class="ghost-button quick-use-button" id="useQuickTypeButton" type="button">
+                      Use this type
+                    </button>
+                  </div>
+                </section>
+              </div>
+
+              <button class="primary-button form-button" id="addPersonButton" type="submit" disabled>
+                Add to circle
+              </button>
+            </form>
           </div>
 
-          <form class="person-form" id="personForm">
-            <label class="field">
-              <span>Name <strong class="required-mark" aria-hidden="true">*</strong></span>
-              <input id="nameInput" name="name" type="text" maxlength="24" placeholder="Add a first name" />
-            </label>
+          <aside class="control-side">
+            <section class="support-card group-support-card">
+              <p class="section-kicker">Group starter</p>
+              <p class="control-title">Keep the circle moving</p>
+              <p class="control-helper">
+                Share the public link with the group, and keep the private admin link for yourself.
+              </p>
+              <p class="admin-badge" id="adminBadge">Group starter mode</p>
+            </section>
 
-            <label class="field">
-              <span>MBTI Type <strong class="required-mark" aria-hidden="true">*</strong></span>
-              <select id="typeInput" name="type">
-                <option value="">Choose type</option>
-                <optgroup label="Analysts">
-                  <option value="INTJ">INTJ - Architect</option>
-                  <option value="INTP">INTP - Logician</option>
-                  <option value="ENTJ">ENTJ - Commander</option>
-                  <option value="ENTP">ENTP - Debater</option>
-                </optgroup>
-                <optgroup label="Diplomats">
-                  <option value="INFJ">INFJ - Advocate</option>
-                  <option value="INFP">INFP - Mediator</option>
-                  <option value="ENFJ">ENFJ - Protagonist</option>
-                  <option value="ENFP">ENFP - Campaigner</option>
-                </optgroup>
-                <optgroup label="Sentinels">
-                  <option value="ISTJ">ISTJ - Logistician</option>
-                  <option value="ISFJ">ISFJ - Defender</option>
-                  <option value="ESTJ">ESTJ - Executive</option>
-                  <option value="ESFJ">ESFJ - Consul</option>
-                </optgroup>
-                <optgroup label="Explorers">
-                  <option value="ISTP">ISTP - Virtuoso</option>
-                  <option value="ISFP">ISFP - Adventurer</option>
-                  <option value="ESTP">ESTP - Entrepreneur</option>
-                  <option value="ESFP">ESFP - Entertainer</option>
-                </optgroup>
-              </select>
-              <small class="field-hint">Pick the 4-letter personality type for this person.</small>
-            </label>
+            <section class="support-card">
+              <div class="share-actions">
+                <button class="ghost-button share-button" id="copyShareLink" type="button">
+                  Copy share link
+                </button>
+                <button class="ghost-button share-button subdued" id="copyAdminLink" type="button">
+                  Copy admin link
+                </button>
+              </div>
+              <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+            </section>
 
-            <button class="primary-button form-button" id="addPersonButton" type="submit" disabled>
-              Add to circle
-            </button>
-          </form>
-
-          <div class="control-meta">
-            <div class="share-actions">
-              <button class="ghost-button share-button" id="copyShareLink" type="button">
-                Copy share link
-              </button>
-              <button class="ghost-button share-button subdued" id="copyAdminLink" type="button">
-                Copy admin link
-              </button>
-            </div>
-            <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
-            <section class="create-group-card" aria-label="Start your own group">
+            <section class="create-group-card support-card" aria-label="Start your own group">
               <p class="section-kicker">Start your own group</p>
               <p class="create-group-title">Want your own public circle?</p>
               <p class="create-group-copy">
@@ -202,7 +296,7 @@
 
               <p class="form-message create-group-message" id="createGroupMessage" role="status" aria-live="polite"></p>
             </section>
-          </div>
+          </aside>
         </section>
 
         <section class="member-panel" id="memberPanel" aria-label="Group members">
