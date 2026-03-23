@@ -399,11 +399,29 @@ function getStageMetrics() {
   };
 }
 
+function getNodeSizeTokens() {
+  if (window.innerWidth < 500) {
+    return { nodeDiameter: 92, activeDiameter: 104 };
+  }
+
+  if (window.innerWidth < 900) {
+    return { nodeDiameter: 108, activeDiameter: 122 };
+  }
+
+  return { nodeDiameter: 132, activeDiameter: 146 };
+}
+
 function generateCircularPositions(nodes) {
   const metrics = getStageMetrics();
-  const minSide = Math.min(metrics.width, metrics.height);
-  const radius = (window.innerWidth < 700 ? 0.35 : 0.41) * minSide;
   const center = { x: metrics.width / 2, y: metrics.height / 2 };
+  const { nodeDiameter } = getNodeSizeTokens();
+  const edgePadding = window.innerWidth < 500 ? 24 : 34;
+  const maxRadius =
+    Math.min(metrics.width, metrics.height) / 2 - nodeDiameter / 2 - edgePadding;
+  const preferredRadius =
+    (window.innerWidth < 500 ? 0.43 : window.innerWidth < 700 ? 0.41 : 0.4) *
+    Math.min(metrics.width, metrics.height);
+  const radius = Math.max(0, Math.min(maxRadius, preferredRadius));
   const startAngle = -Math.PI / 2;
   const angleStep = nodes.length ? (Math.PI * 2) / nodes.length : 0;
   const positions = {};
@@ -614,20 +632,38 @@ function updateAdminUi() {
 }
 
 function getConnectionGeometry(fromPoint, toPoint, index) {
+  const { nodeDiameter, activeDiameter } = getNodeSizeTokens();
   const deltaX = toPoint.x - fromPoint.x;
   const deltaY = toPoint.y - fromPoint.y;
   const distance = Math.hypot(deltaX, deltaY) || 1;
-  const controlOffset = Math.min(28, distance * 0.08);
-  const normalX = (-deltaY / distance) * controlOffset;
-  const normalY = (deltaX / distance) * controlOffset;
-  const controlX = (fromPoint.x + toPoint.x) / 2 + normalX;
-  const controlY = (fromPoint.y + toPoint.y) / 2 + normalY;
+  const unitX = deltaX / distance;
+  const unitY = deltaY / distance;
+  const startPoint = {
+    x: fromPoint.x + unitX * (activeDiameter / 2),
+    y: fromPoint.y + unitY * (activeDiameter / 2)
+  };
+  const endPoint = {
+    x: toPoint.x - unitX * (nodeDiameter / 2),
+    y: toPoint.y - unitY * (nodeDiameter / 2)
+  };
+  const trimmedDeltaX = endPoint.x - startPoint.x;
+  const trimmedDeltaY = endPoint.y - startPoint.y;
+  const trimmedDistance = Math.hypot(trimmedDeltaX, trimmedDeltaY) || 1;
+  const controlOffset = Math.min(28, trimmedDistance * 0.08);
+  const normalX = (-trimmedDeltaY / trimmedDistance) * controlOffset;
+  const normalY = (trimmedDeltaX / trimmedDistance) * controlOffset;
+  const controlX = (startPoint.x + endPoint.x) / 2 + normalX;
+  const controlY = (startPoint.y + endPoint.y) / 2 + normalY;
   const labelLift = 28 + (index % 3) * 12;
-  const labelX = 0.25 * fromPoint.x + 0.5 * controlX + 0.25 * toPoint.x + (normalX / controlOffset) * labelLift;
-  const labelY = 0.25 * fromPoint.y + 0.5 * controlY + 0.25 * toPoint.y + (normalY / controlOffset) * labelLift;
+  const normalUnitX = controlOffset === 0 ? 0 : normalX / controlOffset;
+  const normalUnitY = controlOffset === 0 ? 0 : normalY / controlOffset;
+  const labelX =
+    0.25 * startPoint.x + 0.5 * controlX + 0.25 * endPoint.x + normalUnitX * labelLift;
+  const labelY =
+    0.25 * startPoint.y + 0.5 * controlY + 0.25 * endPoint.y + normalUnitY * labelLift;
 
   return {
-    pathData: `M ${fromPoint.x} ${fromPoint.y} Q ${controlX} ${controlY} ${toPoint.x} ${toPoint.y}`,
+    pathData: `M ${startPoint.x} ${startPoint.y} Q ${controlX} ${controlY} ${endPoint.x} ${endPoint.y}`,
     labelX,
     labelY
   };

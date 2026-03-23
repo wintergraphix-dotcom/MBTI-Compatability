@@ -9,6 +9,8 @@
   --not-bad: #f5a623;
   --great: #52c41a;
   --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  --font-body: "Inter", sans-serif;
+  --font-heading: "Space Grotesk", sans-serif;
 }
 
 * {
@@ -23,7 +25,7 @@ body {
     radial-gradient(circle at bottom right, rgba(255, 77, 79, 0.06), transparent 26%),
     var(--bg);
   color: var(--text);
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-body);
 }
 
 button {
@@ -94,6 +96,7 @@ button {
   margin: 0 0 8px;
   color: var(--muted);
   font-size: 0.9rem;
+  font-family: var(--font-heading);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -107,6 +110,7 @@ button {
 
 h1 {
   margin: 0;
+  font-family: var(--font-heading);
   font-size: clamp(2rem, 4vw, 3.6rem);
   line-height: 0.95;
   letter-spacing: -0.04em;
@@ -131,6 +135,26 @@ h1 {
   backdrop-filter: blur(14px);
 }
 
+.disclaimer-callout {
+  margin: 0 8px 24px;
+  padding: 14px 18px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+}
+
+.disclaimer-callout p {
+  margin: 0;
+  color: #5d6470;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.disclaimer-callout span {
+  margin-right: 6px;
+}
+
 .control-panel {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.35fr) minmax(220px, 0.9fr);
@@ -147,6 +171,7 @@ h1 {
   margin: 0 0 10px;
   color: var(--muted);
   font-size: 0.78rem;
+  font-family: var(--font-heading);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -154,6 +179,7 @@ h1 {
 
 .control-title {
   margin: 0 0 8px;
+  font-family: var(--font-heading);
   font-size: 1.08rem;
   font-weight: 700;
   line-height: 1.25;
@@ -724,9 +750,18 @@ h1 {
     border-radius: 24px;
   }
 
+  .disclaimer-callout {
+    margin-inline: 0;
+    padding: 12px 14px;
+  }
+
+  .disclaimer-callout p {
+    font-size: 0.88rem;
+  }
+
   .map-stage {
     min-height: 500px;
-    height: 64vh;
+    height: 66vh;
   }
 
   .connection-pill {
