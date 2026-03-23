@@ -1200,8 +1200,8 @@ async function loadGroupSnapshot(slug, requestedAdminToken = "") {
 
   const members = await fetchGroupMembers(group.id);
   const storedAdminToken = getStoredAdminToken(group.slug);
-  let candidateToken = requestedAdminToken || storedAdminToken;
-  if (!candidateToken && group.slug === DEFAULT_GROUP_SLUG && storedAdminToken) {
+  let candidateToken = requestedAdminToken;
+  if (!candidateToken && group.slug === DEFAULT_GROUP_SLUG) {
     candidateToken = storedAdminToken;
   }
   let isAdmin = false;
@@ -1233,7 +1233,10 @@ async function refreshCurrentGroup({ animate = true } = {}) {
   }
 
   const members = await fetchGroupMembers(group.id);
-  const storedAdminToken = state.adminToken || getStoredAdminToken(group.slug);
+  const storedAdminToken =
+    group.slug === DEFAULT_GROUP_SLUG
+      ? state.adminToken || getStoredAdminToken(group.slug)
+      : state.adminToken;
   let isAdmin = false;
   let validAdminToken = "";
 
