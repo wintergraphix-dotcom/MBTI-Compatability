@@ -33,6 +33,31 @@
       </header>
 
       <main class="map-card">
+        <section class="map-panel" aria-label="Chemistry map">
+          <div class="map-panel-header">
+            <div>
+              <p class="section-kicker">Chemistry map</p>
+              <p class="control-title">See how one person connects with the rest of the group</p>
+            </div>
+            <div class="legend" aria-label="Compatibility legend">
+              <span><i class="swatch disaster"></i>Disaster</span>
+              <span><i class="swatch strained"></i>Strained</span>
+              <span><i class="swatch neutral"></i>Neutral</span>
+              <span><i class="swatch strong"></i>Strong</span>
+              <span><i class="swatch elite"></i>Elite</span>
+            </div>
+          </div>
+
+          <section class="map-stage" id="mapStage" aria-label="Personality chemistry map">
+            <svg class="connections-layer" id="connectionsLayer" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="labels-layer" id="labelsLayer"></div>
+            <div class="nodes-layer" id="nodesLayer"></div>
+            <div class="map-empty-state" id="mapEmptyState">
+              Add at least 2 people to see the chemistry circle.
+            </div>
+          </section>
+        </section>
+
         <section class="control-panel" aria-label="Add a person">
           <div class="control-copy">
             <p class="section-kicker">Add someone</p>
@@ -108,31 +133,6 @@
             </p>
           </div>
           <div class="member-list" id="memberList"></div>
-        </section>
-
-        <section class="map-panel" aria-label="Chemistry map">
-          <div class="map-panel-header">
-            <div>
-              <p class="section-kicker">Chemistry map</p>
-              <p class="control-title">See how one person connects with the rest of the group</p>
-            </div>
-            <div class="legend" aria-label="Compatibility legend">
-              <span><i class="swatch disaster"></i>Disaster</span>
-              <span><i class="swatch strained"></i>Strained</span>
-              <span><i class="swatch neutral"></i>Neutral</span>
-              <span><i class="swatch strong"></i>Strong</span>
-              <span><i class="swatch elite"></i>Elite</span>
-            </div>
-          </div>
-
-          <section class="map-stage" id="mapStage" aria-label="Personality chemistry map">
-            <svg class="connections-layer" id="connectionsLayer" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid meet"></svg>
-            <div class="labels-layer" id="labelsLayer"></div>
-            <div class="nodes-layer" id="nodesLayer"></div>
-            <div class="map-empty-state" id="mapEmptyState">
-              Add at least 2 people to see the chemistry circle.
-            </div>
-          </section>
         </section>
       </main>
 

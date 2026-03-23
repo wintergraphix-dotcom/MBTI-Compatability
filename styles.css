@@ -266,10 +266,21 @@ h1 {
   font-size: 0.9rem;
 }
 
-.member-panel,
+.map-panel,
+.control-panel,
+.member-panel {
+  padding-inline: 8px;
+}
+
 .map-panel {
-  margin-top: 10px;
-  padding: 30px 8px 0;
+  margin-top: 0;
+  padding-top: 4px;
+}
+
+.control-panel,
+.member-panel {
+  margin-top: 28px;
+  padding-top: 32px;
   border-top: 1px solid rgba(17, 24, 39, 0.06);
 }
 
@@ -374,7 +385,7 @@ h1 {
 .map-panel-header {
   display: grid;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
 
 .legend {
@@ -623,10 +634,14 @@ h1 {
   .control-panel {
     grid-template-columns: 1fr;
     align-items: stretch;
+    margin-top: 24px;
+    padding-top: 24px;
   }
 
   .member-panel {
     grid-template-columns: 1fr;
+    margin-top: 24px;
+    padding-top: 24px;
   }
 
   .person-form {
@@ -687,5 +702,64 @@ h1 {
 
   .member-list {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 500px) {
+  .app-shell {
+    padding: 14px;
+  }
+
+  .topbar {
+    margin-bottom: 22px;
+  }
+
+  .intro-copy {
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .map-card {
+    padding: 18px 14px 14px;
+    border-radius: 24px;
+  }
+
+  .map-stage {
+    min-height: 500px;
+    height: 64vh;
+  }
+
+  .connection-pill {
+    padding: 7px 10px;
+    font-size: 0.74rem;
+  }
+
+  .node {
+    width: 92px;
+    height: 92px;
+    margin-left: -46px;
+    margin-top: -46px;
+    padding: 12px;
+  }
+
+  .node.is-active {
+    width: 104px;
+    height: 104px;
+    margin-left: -52px;
+    margin-top: -52px;
+  }
+
+  .node-name {
+    font-size: 0.82rem;
+  }
+
+  .node-type {
+    margin-top: 4px;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+  }
+
+  .node.is-active .node-name {
+    font-size: 0.9rem;
   }
 }
