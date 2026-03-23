@@ -24,18 +24,20 @@ const APP_CONFIG = window.PERSONALITY_CHEMISTRY_CONFIG || {};
 const layers = {
   stage: document.getElementById("mapStage"),
   svg: document.getElementById("connectionsLayer"),
+  labels: document.getElementById("labelsLayer"),
   nodes: document.getElementById("nodesLayer"),
   status: document.getElementById("statusCopy"),
   form: document.getElementById("personForm"),
   nameInput: document.getElementById("nameInput"),
   typeInput: document.getElementById("typeInput"),
+  addButton: document.getElementById("addPersonButton"),
   formMessage: document.getElementById("formMessage"),
-  labelToggle: document.getElementById("labelToggle"),
   adminBadge: document.getElementById("adminBadge"),
   adminHelper: document.getElementById("adminHelper"),
   memberList: document.getElementById("memberList"),
   copyShareLink: document.getElementById("copyShareLink"),
-  copyAdminLink: document.getElementById("copyAdminLink")
+  copyAdminLink: document.getElementById("copyAdminLink"),
+  mapEmptyState: document.getElementById("mapEmptyState")
 };
 
 const state = {
@@ -43,7 +45,6 @@ const state = {
   defaultActivePersonId: DEFAULT_ACTIVE_ID,
   activePersonId: DEFAULT_ACTIVE_ID,
   hoveredId: null,
-  showLabels: true,
   positions: {},
   animationFrame: null,
   nextId: INITIAL_PEOPLE.length + 1,
@@ -174,7 +175,7 @@ function buildAppUrl(includeAdminKey) {
 }
 
 function syncUrlState() {
-  const nextUrl = buildAppUrl(state.isAdmin);
+  const nextUrl = buildAppUrl(false);
   window.history.replaceState({}, "", nextUrl);
 }
 
@@ -427,6 +428,11 @@ function setMessage(message, isError = false) {
   layers.formMessage.style.color = isError ? "#FF4D4F" : "#72757e";
 }
 
+function setButtonBusy(isBusy) {
+  layers.addButton.disabled = isBusy;
+  layers.addButton.textContent = isBusy ? "Adding..." : "Add to circle";
+}
+
 function getPersonById(id) {
   return state.people.find((person) => person.id === id) || null;
 }
@@ -439,19 +445,6 @@ function easeOutBack(progress) {
 
 function blend(start, end, progress) {
   return start + (end - start) * progress;
-}
-
-function getConnectionPath(centerPoint, outerPoint) {
-  const deltaX = outerPoint.x - centerPoint.x;
-  const deltaY = outerPoint.y - centerPoint.y;
-  const distance = Math.hypot(deltaX, deltaY) || 1;
-  const controlOffset = Math.min(28, distance * 0.08);
-  const normalX = (-deltaY / distance) * controlOffset;
-  const normalY = (deltaX / distance) * controlOffset;
-  const controlX = (centerPoint.x + outerPoint.x) / 2 + normalX;
-  const controlY = (centerPoint.y + outerPoint.y) / 2 + normalY;
-
-  return `M ${centerPoint.x} ${centerPoint.y} Q ${controlX} ${controlY} ${outerPoint.x} ${outerPoint.y}`;
 }
 
 function buildNode(person) {
@@ -502,19 +495,14 @@ function ensureConnection(id) {
   path.setAttribute("id", pathId);
   path.setAttribute("class", "connection-line");
 
-  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  text.setAttribute("class", "connection-label");
-
-  const textPath = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
-  textPath.setAttributeNS("http://www.w3.org/1999/xlink", "href", `#${pathId}`);
-  textPath.setAttribute("startOffset", "50%");
-  textPath.setAttribute("text-anchor", "middle");
-
-  text.appendChild(textPath);
-  group.append(path, text);
+  group.append(path);
   layers.svg.appendChild(group);
 
-  const elementSet = { group, path, textPath };
+  const pill = document.createElement("div");
+  pill.className = "connection-pill";
+  layers.labels.appendChild(pill);
+
+  const elementSet = { group, path, pill };
   connectionElements.set(id, elementSet);
   return elementSet;
 }
@@ -538,6 +526,7 @@ function syncConnectionInventory() {
   connectionElements.forEach((elements, id) => {
     if (!state.people.some((person) => person.id === id)) {
       elements.group.remove();
+      elements.pill.remove();
       connectionElements.delete(id);
     }
   });
@@ -547,62 +536,120 @@ function renderMemberList() {
   layers.memberList.innerHTML = "";
 
   state.people.forEach((person) => {
-    const row = document.createElement("div");
-    row.className = "member-row";
-
-    const meta = document.createElement("div");
-    meta.className = "member-meta";
-    meta.innerHTML = `
-      <span class="member-name">${person.name}</span>
-      <span class="member-type">${person.type}</span>
+    const card = document.createElement("div");
+    card.className = "member-card";
+    card.dataset.id = person.id;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `Show ${person.name}'s chemistry`);
+    card.innerHTML = `
+      <div class="member-meta">
+        <span class="member-name">${person.name}</span>
+        <span class="member-type">${person.type}</span>
+      </div>
+      <div class="member-actions"></div>
     `;
 
-    const actions = document.createElement("div");
-    actions.className = "member-actions";
+    card.classList.toggle("is-active", person.id === state.activePersonId);
+    card.classList.toggle(
+      "is-dimmed",
+      state.hoveredId !== null && person.id !== state.hoveredId && person.id !== state.activePersonId
+    );
+    card.addEventListener("click", () => {
+      if (state.activePersonId !== person.id) {
+        setActivePerson(person.id);
+      }
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        if (state.activePersonId !== person.id) {
+          setActivePerson(person.id);
+        }
+      }
+    });
 
-    if (person.id === state.defaultActivePersonId) {
+    const actions = card.querySelector(".member-actions");
+
+    if (person.id === state.defaultActivePersonId && state.isAdmin) {
       const starter = document.createElement("span");
       starter.className = "member-pill";
       starter.textContent = "Starter";
       actions.appendChild(starter);
     }
 
+    if (person.id === state.activePersonId) {
+      const active = document.createElement("span");
+      active.className = "member-pill";
+      active.textContent = "Active";
+      actions.appendChild(active);
+    }
+
     if (state.isAdmin) {
       const removeButton = document.createElement("button");
       removeButton.className = "remove-button";
       removeButton.type = "button";
-      removeButton.textContent = "Remove";
+      removeButton.textContent = "×";
+      removeButton.setAttribute("aria-label", `Remove ${person.name}`);
       removeButton.disabled = state.people.length <= 1 || person.id === state.defaultActivePersonId;
-      removeButton.addEventListener("click", () => {
+      removeButton.addEventListener("click", (event) => {
+        event.stopPropagation();
         removePerson(person.id);
       });
       actions.appendChild(removeButton);
     }
 
-    row.append(meta, actions);
-    layers.memberList.appendChild(row);
+    layers.memberList.appendChild(card);
   });
 }
 
 function updateAdminUi() {
-  layers.adminBadge.textContent = state.isAdmin ? "Group starter mode" : "Shared participant mode";
+  layers.adminBadge.textContent = state.isAdmin ? "Starter view" : "Shared view";
   layers.adminBadge.classList.toggle("is-viewer", !state.isAdmin);
   layers.adminHelper.textContent = state.isAdmin
-    ? "You can remove people and share either the participant link or the protected admin link."
-    : "You can add yourself from this shared link. Removing people is reserved for the group starter.";
+    ? "Tap anyone below to steer the circle. You can also tidy the guest list if needed."
+    : "Tap anyone below to see their chemistry with the rest of the group.";
   layers.copyAdminLink.style.display = state.isAdmin ? "" : "none";
   renderMemberList();
 }
 
+function getConnectionGeometry(fromPoint, toPoint, index) {
+  const deltaX = toPoint.x - fromPoint.x;
+  const deltaY = toPoint.y - fromPoint.y;
+  const distance = Math.hypot(deltaX, deltaY) || 1;
+  const controlOffset = Math.min(28, distance * 0.08);
+  const normalX = (-deltaY / distance) * controlOffset;
+  const normalY = (deltaX / distance) * controlOffset;
+  const controlX = (fromPoint.x + toPoint.x) / 2 + normalX;
+  const controlY = (fromPoint.y + toPoint.y) / 2 + normalY;
+  const labelLift = 28 + (index % 3) * 12;
+  const labelX = 0.25 * fromPoint.x + 0.5 * controlX + 0.25 * toPoint.x + (normalX / controlOffset) * labelLift;
+  const labelY = 0.25 * fromPoint.y + 0.5 * controlY + 0.25 * toPoint.y + (normalY / controlOffset) * labelLift;
+
+  return {
+    pathData: `M ${fromPoint.x} ${fromPoint.y} Q ${controlX} ${controlY} ${toPoint.x} ${toPoint.y}`,
+    labelX,
+    labelY
+  };
+}
+
 function renderConnectionsFromActivePerson(activePersonId, positions) {
+  const tooSmallForMap = state.people.length < 2;
+  layers.mapEmptyState.classList.toggle("is-visible", tooSmallForMap);
+
   const activePerson = getPersonById(activePersonId);
   const activePosition = positions[activePersonId];
 
   connectionElements.forEach((elements) => {
     elements.group.style.display = "none";
+    elements.pill.style.display = "none";
   });
 
-  state.people.forEach((person) => {
+  if (!activePerson || tooSmallForMap) {
+    return;
+  }
+
+  state.people.forEach((person, index) => {
     if (person.id === activePersonId) {
       return;
     }
@@ -610,17 +657,20 @@ function renderConnectionsFromActivePerson(activePersonId, positions) {
     const position = positions[person.id];
     const connection = ensureConnection(person.id);
     const compatibility = getCompatibilityFromMatrix(activePerson.type, person.type);
+    const geometry = getConnectionGeometry(activePosition, position, index);
 
     connection.group.style.display = "";
-    connection.group.classList.toggle("labels-hidden", !state.showLabels);
-    connection.path.setAttribute("d", getConnectionPath(activePosition, position));
+    connection.path.setAttribute("d", geometry.pathData);
     connection.path.setAttribute("stroke", compatibility.color);
     connection.path.setAttribute(
       "stroke-width",
       String(compatibility.width + compatibility.score * 0.12)
     );
     connection.path.setAttribute("data-reason", compatibility.reason || "");
-    connection.textPath.textContent = `${compatibility.label} • ${compatibility.score}/9`;
+    connection.pill.style.display = "";
+    connection.pill.textContent = `${compatibility.label} · ${compatibility.score}/9`;
+    connection.pill.style.left = `${geometry.labelX}px`;
+    connection.pill.style.top = `${geometry.labelY}px`;
   });
 }
 
@@ -673,18 +723,26 @@ function updateVisualState() {
       state.hoveredId !== state.activePersonId;
 
     elements.group.classList.toggle("is-dimmed", shouldDim);
-    elements.group.classList.toggle("labels-hidden", !state.showLabels);
+    elements.pill.classList.toggle("is-dimmed", shouldDim);
     elements.path.style.strokeWidth = `${
       isHovered
         ? compatibility.width + compatibility.score * 0.12 + 2
         : compatibility.width + compatibility.score * 0.12
     }`;
     elements.path.style.filter = isHovered ? "drop-shadow(0 0 8px rgba(17,24,39,0.18))" : "none";
+    elements.pill.style.boxShadow = isHovered
+      ? "0 14px 28px rgba(15, 23, 42, 0.12)"
+      : "0 10px 24px rgba(15, 23, 42, 0.08)";
   });
 
-  layers.status.textContent = `Current chemistry: ${activePerson.name}`;
+  if (!activePerson) {
+    layers.status.textContent = "Add at least 2 people to see the chemistry circle.";
+    return;
+  }
+
+  layers.status.textContent = `Now viewing ${activePerson.name}'s chemistry with the group`;
   if (state.activePersonId === state.defaultActivePersonId) {
-    layers.status.textContent = `Your chemistry: ${activePerson.name}`;
+    layers.status.textContent = `${activePerson.name}'s chemistry with the group`;
   }
 }
 
@@ -752,13 +810,17 @@ function addPerson(name, type) {
   const trimmedName = String(name || "").trim();
   const normalizedType = String(type || "").trim().toUpperCase();
 
+  setButtonBusy(true);
+
   if (!trimmedName) {
-    setMessage("Please enter a name before adding someone.", true);
+    setButtonBusy(false);
+    setMessage("Add a name first.", true);
     return false;
   }
 
   if (!parseMBTI(normalizedType)) {
-    setMessage("Choose a valid MBTI type from the list.", true);
+    setButtonBusy(false);
+    setMessage("Choose an MBTI type from the list.", true);
     return false;
   }
 
@@ -767,7 +829,8 @@ function addPerson(name, type) {
   );
 
   if (duplicate) {
-    setMessage("That name is already in the map. Try a different one.", true);
+    setButtonBusy(false);
+    setMessage("That name is already in the circle.", true);
     return false;
   }
 
@@ -790,7 +853,8 @@ function addPerson(name, type) {
   animateToPositions(generateCircularPositions(state.people));
   syncUrlState();
   void persistSharedState();
-  setMessage(`${person.name} joined the map as ${person.type}.`);
+  setButtonBusy(false);
+  setMessage(`${person.name} joined the circle.`);
   return true;
 }
 
@@ -823,7 +887,7 @@ function removePerson(id) {
   animateToPositions(generateCircularPositions(state.people));
   syncUrlState();
   void persistSharedState();
-  setMessage(`${person.name} was removed from the group.`);
+  setMessage(`${person.name} was removed from the circle.`);
 }
 
 async function copyLink(includeAdminKey) {
@@ -833,7 +897,7 @@ async function copyLink(includeAdminKey) {
     await navigator.clipboard.writeText(link);
     setMessage(includeAdminKey ? "Admin link copied." : "Share link copied.");
   } catch {
-    setMessage("Clipboard access is unavailable here. Copy the URL from the address bar instead.", true);
+    setMessage("Copying is unavailable here, so use the address bar instead.", true);
   }
 }
 
@@ -859,14 +923,8 @@ layers.form.addEventListener("submit", (event) => {
   if (created) {
     layers.form.reset();
     layers.typeInput.value = "";
-    layers.labelToggle.checked = state.showLabels;
+    layers.nameInput.focus();
   }
-});
-
-layers.labelToggle.addEventListener("change", () => {
-  state.showLabels = layers.labelToggle.checked;
-  updateVisualState();
-  syncUrlState();
 });
 
 layers.copyShareLink.addEventListener("click", () => {
