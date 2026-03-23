@@ -399,29 +399,118 @@ function getStageMetrics() {
   };
 }
 
-function getNodeSizeTokens() {
-  if (window.innerWidth < 500) {
-    return { nodeDiameter: 92, activeDiameter: 104 };
+function getResponsiveLayout() {
+  const viewportWidth = window.innerWidth;
+  const mapSize = Math.max(280, Math.min(viewportWidth - 32, 560));
+
+  if (viewportWidth < 390) {
+    return {
+      viewportWidth,
+      mapSize,
+      nodeDiameter: 60,
+      activeDiameter: 76,
+      nodeNameSize: "0.7rem",
+      activeNodeNameSize: "0.8rem",
+      nodeTypeSize: "0.56rem",
+      nodePadding: "9px",
+      pillFontSize: "0.68rem",
+      pillPaddingY: "6px",
+      pillPaddingX: "8px"
+    };
   }
 
-  if (window.innerWidth < 900) {
-    return { nodeDiameter: 108, activeDiameter: 122 };
+  if (viewportWidth < 500) {
+    return {
+      viewportWidth,
+      mapSize,
+      nodeDiameter: 68,
+      activeDiameter: 84,
+      nodeNameSize: "0.76rem",
+      activeNodeNameSize: "0.86rem",
+      nodeTypeSize: "0.6rem",
+      nodePadding: "10px",
+      pillFontSize: "0.72rem",
+      pillPaddingY: "6px",
+      pillPaddingX: "9px"
+    };
   }
 
-  return { nodeDiameter: 132, activeDiameter: 146 };
+  if (viewportWidth < 700) {
+    return {
+      viewportWidth,
+      mapSize,
+      nodeDiameter: 82,
+      activeDiameter: 102,
+      nodeNameSize: "0.82rem",
+      activeNodeNameSize: "0.94rem",
+      nodeTypeSize: "0.64rem",
+      nodePadding: "11px",
+      pillFontSize: "0.74rem",
+      pillPaddingY: "7px",
+      pillPaddingX: "10px"
+    };
+  }
+
+  if (viewportWidth <= 900) {
+    return {
+      viewportWidth,
+      mapSize,
+      nodeDiameter: 96,
+      activeDiameter: 116,
+      nodeNameSize: "0.9rem",
+      activeNodeNameSize: "1rem",
+      nodeTypeSize: "0.68rem",
+      nodePadding: "12px",
+      pillFontSize: "0.78rem",
+      pillPaddingY: "7px",
+      pillPaddingX: "11px"
+    };
+  }
+
+  return {
+    viewportWidth,
+    mapSize,
+    nodeDiameter: 112,
+    activeDiameter: 132,
+    nodeNameSize: "0.94rem",
+    activeNodeNameSize: "1.04rem",
+    nodeTypeSize: "0.7rem",
+    nodePadding: "14px",
+    pillFontSize: "0.83rem",
+    pillPaddingY: "8px",
+    pillPaddingX: "12px"
+  };
+}
+
+function applyResponsiveMapSizing() {
+  const layout = getResponsiveLayout();
+
+  layers.stage.style.width = `${layout.mapSize}px`;
+  layers.stage.style.height = `${layout.mapSize}px`;
+  document.documentElement.style.setProperty("--node-size", `${layout.nodeDiameter}px`);
+  document.documentElement.style.setProperty("--active-node-size", `${layout.activeDiameter}px`);
+  document.documentElement.style.setProperty("--node-name-size", layout.nodeNameSize);
+  document.documentElement.style.setProperty("--active-node-name-size", layout.activeNodeNameSize);
+  document.documentElement.style.setProperty("--node-type-size", layout.nodeTypeSize);
+  document.documentElement.style.setProperty("--node-padding", layout.nodePadding);
+  document.documentElement.style.setProperty("--pill-font-size", layout.pillFontSize);
+  document.documentElement.style.setProperty("--pill-padding-y", layout.pillPaddingY);
+  document.documentElement.style.setProperty("--pill-padding-x", layout.pillPaddingX);
+
+  return layout;
 }
 
 function generateCircularPositions(nodes) {
+  const layout = applyResponsiveMapSizing();
   const metrics = getStageMetrics();
   const center = { x: metrics.width / 2, y: metrics.height / 2 };
-  const { nodeDiameter } = getNodeSizeTokens();
-  const edgePadding = window.innerWidth < 500 ? 24 : 34;
-  const maxRadius =
-    Math.min(metrics.width, metrics.height) / 2 - nodeDiameter / 2 - edgePadding;
-  const preferredRadius =
-    (window.innerWidth < 500 ? 0.43 : window.innerWidth < 700 ? 0.41 : 0.4) *
-    Math.min(metrics.width, metrics.height);
-  const radius = Math.max(0, Math.min(maxRadius, preferredRadius));
+  let radius = layout.mapSize / 2 - layout.activeDiameter / 2 - 24;
+  if (layout.viewportWidth < 500) {
+    radius -= 8;
+  }
+  const minRadius = Math.max(72, layout.nodeDiameter);
+  const maxRadius = Math.max(minRadius, layout.mapSize / 2 - layout.activeDiameter / 2 - 12);
+  radius = Math.max(minRadius, Math.min(radius, maxRadius));
   const startAngle = -Math.PI / 2;
   const angleStep = nodes.length ? (Math.PI * 2) / nodes.length : 0;
   const positions = {};
@@ -632,7 +721,8 @@ function updateAdminUi() {
 }
 
 function getConnectionGeometry(fromPoint, toPoint, index) {
-  const { nodeDiameter, activeDiameter } = getNodeSizeTokens();
+  const layout = getResponsiveLayout();
+  const { nodeDiameter, activeDiameter, viewportWidth } = layout;
   const deltaX = toPoint.x - fromPoint.x;
   const deltaY = toPoint.y - fromPoint.y;
   const distance = Math.hypot(deltaX, deltaY) || 1;
@@ -654,24 +744,30 @@ function getConnectionGeometry(fromPoint, toPoint, index) {
   const normalY = (trimmedDeltaX / trimmedDistance) * controlOffset;
   const controlX = (startPoint.x + endPoint.x) / 2 + normalX;
   const controlY = (startPoint.y + endPoint.y) / 2 + normalY;
-  const labelLift = 28 + (index % 3) * 12;
+  const labelLiftBase = viewportWidth < 500 ? 22 : 28;
+  const labelLiftStep = viewportWidth < 500 ? 9 : 12;
+  const labelLift = labelLiftBase + (index % 3) * labelLiftStep;
   const normalUnitX = controlOffset === 0 ? 0 : normalX / controlOffset;
   const normalUnitY = controlOffset === 0 ? 0 : normalY / controlOffset;
   const labelX =
     0.25 * startPoint.x + 0.5 * controlX + 0.25 * endPoint.x + normalUnitX * labelLift;
   const labelY =
     0.25 * startPoint.y + 0.5 * controlY + 0.25 * endPoint.y + normalUnitY * labelLift;
+  const inset = viewportWidth < 500 ? 22 : 28;
+  const clampedLabelX = Math.max(inset, Math.min(labelX, layout.mapSize - inset));
+  const clampedLabelY = Math.max(inset, Math.min(labelY, layout.mapSize - inset));
 
   return {
     pathData: `M ${startPoint.x} ${startPoint.y} Q ${controlX} ${controlY} ${endPoint.x} ${endPoint.y}`,
-    labelX,
-    labelY
+    labelX: clampedLabelX,
+    labelY: clampedLabelY
   };
 }
 
 function renderConnectionsFromActivePerson(activePersonId, positions) {
   const tooSmallForMap = state.people.length < 2;
   layers.mapEmptyState.classList.toggle("is-visible", tooSmallForMap);
+  const isSmallViewport = window.innerWidth < 500;
 
   const activePerson = getPersonById(activePersonId);
   const activePosition = positions[activePersonId];
@@ -705,6 +801,7 @@ function renderConnectionsFromActivePerson(activePersonId, positions) {
     connection.path.setAttribute("data-reason", compatibility.reason || "");
     connection.pill.style.display = "";
     connection.pill.textContent = `${compatibility.label} · ${compatibility.score}/9`;
+    connection.pill.dataset.compact = String(isSmallViewport);
     connection.pill.style.left = `${geometry.labelX}px`;
     connection.pill.style.top = `${geometry.labelY}px`;
   });
@@ -939,6 +1036,7 @@ async function copyLink(includeAdminKey) {
 
 function initialize() {
   loadStateFromUrl();
+  applyResponsiveMapSizing();
   syncNodeInventory();
   syncConnectionInventory();
   updateAdminUi();
@@ -950,6 +1048,7 @@ function handleResize() {
     cancelAnimationFrame(state.animationFrame);
     state.animationFrame = null;
   }
+  applyResponsiveMapSizing();
   renderFrame(generateCircularPositions(state.people));
 }
 

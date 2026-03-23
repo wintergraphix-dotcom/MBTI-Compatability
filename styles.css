@@ -11,6 +11,15 @@
   --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
   --font-body: "Inter", sans-serif;
   --font-heading: "Space Grotesk", sans-serif;
+  --node-size: 112px;
+  --active-node-size: 132px;
+  --node-name-size: 0.94rem;
+  --node-type-size: 0.7rem;
+  --active-node-name-size: 1.04rem;
+  --node-padding: 14px;
+  --pill-font-size: 0.83rem;
+  --pill-padding-y: 8px;
+  --pill-padding-x: 12px;
 }
 
 * {
@@ -457,9 +466,12 @@ h1 {
 
 .map-stage {
   position: relative;
-  height: min(76vh, 820px);
-  min-height: 640px;
+  width: min(100%, 560px);
+  height: min(100%, 560px);
+  min-height: 320px;
+  aspect-ratio: 1 / 1;
   margin-top: 6px;
+  margin-inline: auto;
   border-radius: 32px;
   background:
     radial-gradient(circle at center, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.35)),
@@ -498,13 +510,13 @@ h1 {
 
 .connection-pill {
   position: absolute;
-  padding: 8px 12px;
+  padding: var(--pill-padding-y) var(--pill-padding-x);
   border: 1px solid rgba(17, 24, 39, 0.08);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
   color: #4c525d;
-  font-size: 0.83rem;
+  font-size: var(--pill-font-size);
   font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -538,13 +550,13 @@ h1 {
 
 .node {
   position: absolute;
-  width: 132px;
-  height: 132px;
-  margin-left: -66px;
-  margin-top: -66px;
+  width: var(--node-size);
+  height: var(--node-size);
+  margin-left: calc(var(--node-size) / -2);
+  margin-top: calc(var(--node-size) / -2);
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: var(--node-padding);
   border: 1px solid rgba(17, 24, 39, 0.08);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.94);
@@ -564,10 +576,10 @@ h1 {
 }
 
 .node.is-active {
-  width: 146px;
-  height: 146px;
-  margin-left: -73px;
-  margin-top: -73px;
+  width: var(--active-node-size);
+  height: var(--active-node-size);
+  margin-left: calc(var(--active-node-size) / -2);
+  margin-top: calc(var(--active-node-size) / -2);
   box-shadow:
     0 20px 40px rgba(15, 23, 42, 0.14),
     0 0 0 6px rgba(115, 209, 61, 0.14),
@@ -590,7 +602,7 @@ h1 {
 }
 
 .node-name {
-  font-size: 1.08rem;
+  font-size: var(--node-name-size);
   font-weight: 700;
   line-height: 1.1;
   text-align: center;
@@ -598,14 +610,14 @@ h1 {
 
 .node-type {
   margin-top: 6px;
-  font-size: 0.78rem;
+  font-size: var(--node-type-size);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .node.is-active .node-name {
-  font-size: 1.2rem;
+  font-size: var(--active-node-name-size);
 }
 
 .node.is-dimmed,
@@ -686,27 +698,6 @@ h1 {
     justify-content: flex-start;
   }
 
-  .map-stage {
-    min-height: 600px;
-  }
-
-  .node {
-    width: 108px;
-    height: 108px;
-    margin-left: -54px;
-    margin-top: -54px;
-  }
-
-  .node.is-active {
-    width: 122px;
-    height: 122px;
-    margin-left: -61px;
-    margin-top: -61px;
-  }
-
-  .node-name {
-    font-size: 0.95rem;
-  }
 }
 
 @media (max-width: 640px) {
@@ -719,11 +710,6 @@ h1 {
   .ghost-button,
   .primary-button {
     width: 100%;
-  }
-
-  .map-stage {
-    min-height: 540px;
-    height: 68vh;
   }
 
   .member-list {
@@ -759,42 +745,37 @@ h1 {
     font-size: 0.88rem;
   }
 
-  .map-stage {
-    min-height: 500px;
-    height: 66vh;
+  .member-panel {
+    margin-top: 18px;
+    padding-top: 20px;
   }
 
-  .connection-pill {
-    padding: 7px 10px;
-    font-size: 0.74rem;
+  .member-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
-  .node {
-    width: 92px;
-    height: 92px;
-    margin-left: -46px;
-    margin-top: -46px;
-    padding: 12px;
+  .member-card {
+    padding: 12px 14px;
+    border-radius: 18px;
   }
 
-  .node.is-active {
-    width: 104px;
-    height: 104px;
-    margin-left: -52px;
-    margin-top: -52px;
-  }
-
-  .node-name {
-    font-size: 0.82rem;
-  }
-
-  .node-type {
-    margin-top: 4px;
-    font-size: 0.64rem;
-    letter-spacing: 0.06em;
-  }
-
-  .node.is-active .node-name {
+  .member-name {
     font-size: 0.9rem;
+  }
+
+  .member-type {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .member-list {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .member-card {
+    padding: 10px 12px;
   }
 }
